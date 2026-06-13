@@ -2,263 +2,285 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>地球防衛オペレーション</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>地球防衛OPS</title>
   <style>
     :root {
-      --bg: #0A0E1A;
-      --bg2: #0D1426;
-      --bg3: #111830;
-      --cyan: #00D4FF;
-      --cyan-dim: #00D4FF40;
-      --blue: #0066CC;
-      --blue2: #004499;
-      --text: #E0F0FF;
-      --text-dim: #7899BB;
-      --done: #00FF88;
-      --skip: #FF6644;
-      --border: #1A3055;
+      --bg:       #0A0E1A;
+      --bg2:      #0D1426;
+      --bg3:      #111830;
+      --cyan:     #00D4FF;
+      --cyan-dim: rgba(0,212,255,0.18);
+      --blue:     #0055BB;
+      --text:     #E0F0FF;
+      --dim:      #6688AA;
+      --done:     #00FF88;
+      --skip:     #FF6644;
+      --border:   #1A3055;
+      --safe:     44px;  /* minimum tap target */
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-    body {
+    html, body {
+      height: 100%;
       background: var(--bg);
       color: var(--text);
-      font-family: 'Courier New', 'Hiragino Kaku Gothic ProN', monospace;
-      min-height: 100vh;
-      overflow-x: hidden;
+      font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Courier New', monospace;
+      font-size: 15px;
+      overscroll-behavior: none;
+    }
+
+    /* ==============================
+       レイアウト
+    ============================== */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
     }
 
     /* ヘッダー */
     header {
-      border-bottom: 1px solid var(--cyan-dim);
-      padding: 16px 20px;
+      flex-shrink: 0;
       display: flex;
       align-items: center;
-      gap: 12px;
-      background: linear-gradient(180deg, #0A1428 0%, var(--bg) 100%);
-    }
-    .logo {
-      font-size: 20px;
-      font-weight: bold;
-      color: var(--cyan);
-      text-shadow: 0 0 12px var(--cyan);
-      letter-spacing: 2px;
-    }
-    .logo-sub {
-      font-size: 10px;
-      color: var(--text-dim);
-      letter-spacing: 3px;
-      margin-top: 2px;
-    }
-    .status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--done);
-      box-shadow: 0 0 8px var(--done);
-      animation: pulse 2s infinite;
-      margin-left: auto;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    /* タブ */
-    .tabs {
-      display: flex;
+      gap: 10px;
+      padding: 14px 16px 12px;
+      background: linear-gradient(180deg, #081020 0%, var(--bg) 100%);
       border-bottom: 1px solid var(--border);
-      padding: 0 20px;
+    }
+    .logo { font-size: 17px; font-weight: bold; color: var(--cyan); text-shadow: 0 0 10px var(--cyan); letter-spacing: 1px; }
+    .logo-sub { font-size: 9px; color: var(--dim); letter-spacing: 3px; margin-top: 1px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--done); box-shadow: 0 0 8px var(--done); margin-left: auto; animation: blink 2s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* スクロール領域 */
+    .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .pad { padding: 16px; }
+
+    /* ボトムナビ */
+    nav {
+      flex-shrink: 0;
+      display: flex;
+      border-top: 1px solid var(--border);
       background: var(--bg2);
     }
-    .tab {
-      padding: 12px 20px;
-      font-size: 12px;
-      letter-spacing: 2px;
-      color: var(--text-dim);
+    .nav-btn {
+      flex: 1;
+      min-height: var(--safe);
+      background: none;
+      border: none;
+      color: var(--dim);
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: 1px;
       cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      transition: color 0.2s;
+      padding: 6px 0;
     }
-    .tab.active {
-      color: var(--cyan);
-      border-bottom-color: var(--cyan);
-      text-shadow: 0 0 8px var(--cyan-dim);
+    .nav-btn .icon { font-size: 20px; line-height: 1; }
+    .nav-btn.active { color: var(--cyan); }
+    .nav-btn.active .icon { filter: drop-shadow(0 0 4px var(--cyan)); }
+
+    /* ==============================
+       タブ
+    ============================== */
+    .tab { display: none; }
+    .tab.active { display: block; }
+
+    /* ==============================
+       共通部品
+    ============================== */
+    .section-label {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--dim);
+      margin-bottom: 10px;
     }
 
-    /* メインコンテンツ */
-    .content { display: none; padding: 20px; max-width: 800px; margin: 0 auto; }
-    .content.active { display: block; }
-
-    /* ミッション追加フォーム */
-    .add-mission {
+    .card {
       background: var(--bg3);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 20px;
+      border-radius: 12px;
+      padding: 14px;
     }
-    .add-mission-title {
-      font-size: 11px;
-      color: var(--cyan);
-      letter-spacing: 3px;
-      margin-bottom: 12px;
-    }
-    .input-row {
-      display: flex;
-      gap: 10px;
-    }
-    input[type="text"] {
-      flex: 1;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--text);
-      padding: 10px 14px;
-      font-family: inherit;
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    input[type="text"]:focus { border-color: var(--cyan); box-shadow: 0 0 8px var(--cyan-dim); }
-    input[type="text"]::placeholder { color: var(--text-dim); }
+    .card + .card { margin-top: 10px; }
 
     /* ボタン */
     .btn {
-      padding: 10px 18px;
+      min-height: var(--safe);
+      width: 100%;
       border: none;
-      border-radius: 4px;
-      cursor: pointer;
+      border-radius: 10px;
       font-family: inherit;
-      font-size: 13px;
+      font-size: 15px;
       font-weight: bold;
-      letter-spacing: 1px;
-      transition: all 0.2s;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity 0.15s, transform 0.1s;
+      -webkit-appearance: none;
     }
-    .btn-primary {
-      background: var(--blue);
-      color: var(--text);
-      border: 1px solid var(--cyan);
-    }
-    .btn-primary:hover { background: var(--blue2); box-shadow: 0 0 12px var(--cyan-dim); }
-    .btn-done {
-      background: transparent;
-      color: var(--done);
-      border: 1px solid var(--done);
-      flex: 1;
-    }
-    .btn-done:hover { background: rgba(0,255,136,0.1); box-shadow: 0 0 12px rgba(0,255,136,0.3); }
-    .btn-skip {
-      background: transparent;
-      color: var(--skip);
-      border: 1px solid var(--skip);
-      flex: 1;
-    }
-    .btn-skip:hover { background: rgba(255,102,68,0.1); box-shadow: 0 0 12px rgba(255,102,68,0.3); }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn:active { transform: scale(0.97); opacity: 0.85; }
+    .btn:disabled { opacity: 0.35; pointer-events: none; }
 
-    /* ミッションリスト */
-    .section-title {
-      font-size: 11px;
-      color: var(--text-dim);
-      letter-spacing: 3px;
-      margin-bottom: 12px;
+    .btn-primary {
+      background: linear-gradient(135deg, #0055BB, #003F99);
+      color: var(--text);
+      border: 1px solid var(--cyan-dim);
     }
-    .mission-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+    .btn-done {
+      background: linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,255,136,0.08));
+      color: var(--done);
+      border: 1px solid rgba(0,255,136,0.4);
+    }
+    .btn-skip {
+      background: linear-gradient(135deg, rgba(255,102,68,0.15), rgba(255,102,68,0.08));
+      color: var(--skip);
+      border: 1px solid rgba(255,102,68,0.4);
+    }
+    .btn-sm {
+      min-height: 36px;
+      width: auto;
+      padding: 0 12px;
+      font-size: 13px;
+      border-radius: 8px;
+    }
+
+    /* テキスト入力 */
+    input[type="text"], textarea {
+      width: 100%;
+      min-height: var(--safe);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      padding: 12px 14px;
+      font-family: inherit;
+      font-size: 15px;
+      outline: none;
+      -webkit-appearance: none;
+      margin-bottom: 10px;
+    }
+    input[type="text"]:focus, textarea:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 2px var(--cyan-dim);
+    }
+    input::placeholder, textarea::placeholder { color: var(--dim); }
+
+    /* ==============================
+       作戦本部
+    ============================== */
     .mission-card {
       background: var(--bg3);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px 16px;
+      border-radius: 12px;
+      padding: 14px;
       cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .mission-card:hover { border-color: var(--blue); }
-    .mission-card.selected {
-      border-color: var(--cyan);
-      box-shadow: 0 0 12px var(--cyan-dim);
-      background: #0D1E35;
-    }
-    .mission-card .goal { font-size: 14px; flex: 1; }
-    .mission-card .date { font-size: 11px; color: var(--text-dim); }
-    .mission-delete {
-      background: none;
-      border: none;
-      color: var(--text-dim);
-      cursor: pointer;
-      padding: 4px;
-      font-size: 16px;
-      line-height: 1;
-      transition: color 0.2s;
-    }
-    .mission-delete:hover { color: var(--skip); }
-    .no-missions { color: var(--text-dim); font-size: 13px; text-align: center; padding: 20px; }
-
-    /* 司令室 */
-    .command-room {
-      background: var(--bg2);
-      border: 1px solid var(--cyan-dim);
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 16px;
-      min-height: 160px;
-    }
-    .command-room-header {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border);
+      transition: border-color 0.2s;
+      margin-bottom: 8px;
     }
-    .char-badge {
-      background: var(--blue2);
+    .mission-card:active { background: #0D1E35; }
+    .mission-card.selected {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 1px var(--cyan-dim);
+      background: #0D1E35;
+    }
+    .mission-card .goal { flex: 1; font-size: 15px; line-height: 1.4; }
+    .mission-card .meta { font-size: 11px; color: var(--dim); margin-top: 2px; }
+    .del-btn {
+      background: none;
+      border: none;
+      color: var(--dim);
+      font-size: 20px;
+      padding: 6px;
+      cursor: pointer;
+      min-width: var(--safe);
+      min-height: var(--safe);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ミッション詳細パネル */
+    #commandArea { margin-top: 0; }
+
+    .if-then-box {
+      background: var(--bg);
+      border-left: 3px solid var(--cyan);
+      border-radius: 0 8px 8px 0;
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--dim);
+      margin-bottom: 12px;
+    }
+    .if-then-box b { color: var(--cyan); }
+
+    .command-room {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      min-height: 100px;
+    }
+    .char-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .char-name {
+      background: rgba(0,85,187,0.4);
       border: 1px solid var(--cyan);
-      border-radius: 4px;
+      border-radius: 6px;
       padding: 4px 10px;
-      font-size: 12px;
+      font-size: 13px;
       color: var(--cyan);
     }
-    .char-personality { font-size: 11px; color: var(--text-dim); }
-    .char-message {
-      font-size: 14px;
-      line-height: 1.8;
-      color: var(--text);
-      white-space: pre-wrap;
-    }
-    .mission-info {
-      font-size: 12px;
-      color: var(--text-dim);
-      margin-bottom: 16px;
-      padding: 10px 14px;
-      background: var(--bg);
-      border-radius: 4px;
-      border-left: 3px solid var(--cyan);
-      line-height: 1.6;
-    }
-    .select-prompt { color: var(--text-dim); font-size: 13px; text-align: center; padding: 30px; }
+    .char-personality { font-size: 11px; color: var(--dim); line-height: 1.4; flex-basis: 100%; }
+    .char-msg { font-size: 14px; line-height: 1.9; white-space: pre-wrap; }
 
-    /* 報告ボタンエリア */
-    .report-area {
-      display: flex;
-      gap: 12px;
-      margin-top: 4px;
+    .report-row { display: flex; gap: 10px; }
+    .report-row .btn { flex: 1; font-size: 14px; }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
     }
+    .badge-done { background: rgba(0,255,136,0.12); color: var(--done); border: 1px solid rgba(0,255,136,0.3); }
+    .badge-skip { background: rgba(255,102,68,0.12); color: var(--skip); border: 1px solid rgba(255,102,68,0.3); }
+    .badge-wait { background: rgba(120,153,187,0.12); color: var(--dim); border: 1px solid rgba(120,153,187,0.2); }
 
     /* ローディング */
-    .loading {
-      display: inline-flex;
+    .loading-row {
+      display: flex;
       align-items: center;
       gap: 8px;
       color: var(--cyan);
-      font-size: 12px;
+      font-size: 13px;
+      padding: 8px 0;
     }
-    .spinner {
-      width: 16px; height: 16px;
+    .spin {
+      width: 18px; height: 18px;
       border: 2px solid var(--border);
       border-top-color: var(--cyan);
       border-radius: 50%;
@@ -266,132 +288,158 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* アーカイブ */
-    .archive-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-    .archive-mission-select {
+    /* 空状態 */
+    .empty { text-align: center; color: var(--dim); font-size: 13px; padding: 30px 16px; line-height: 1.8; }
+
+    /* セクション区切り */
+    .section-gap { height: 20px; }
+
+    /* ==============================
+       アーカイブ
+    ============================== */
+    .archive-select-wrap { margin-bottom: 16px; }
+    select {
+      width: 100%;
+      min-height: var(--safe);
       background: var(--bg3);
       border: 1px solid var(--border);
+      border-radius: 10px;
       color: var(--text);
-      padding: 8px 12px;
-      border-radius: 4px;
+      padding: 0 14px;
       font-family: inherit;
-      font-size: 13px;
-      flex: 1;
+      font-size: 15px;
       outline: none;
+      -webkit-appearance: none;
     }
-    .archive-list { display: flex; flex-direction: column; gap: 10px; }
-    .archive-card {
+
+    .arc-card {
       background: var(--bg3);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 14px 16px;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 10px;
     }
-    .archive-card-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 8px;
-    }
-    .archive-date { font-size: 12px; color: var(--text-dim); }
-    .badge-done {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 10px;
-      background: rgba(0,255,136,0.15);
-      color: var(--done);
-      border: 1px solid rgba(0,255,136,0.3);
-    }
-    .badge-skip {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 10px;
-      background: rgba(255,102,68,0.15);
-      color: var(--skip);
-      border: 1px solid rgba(255,102,68,0.3);
-    }
-    .badge-pending {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 10px;
-      background: rgba(120,153,187,0.15);
-      color: var(--text-dim);
-      border: 1px solid rgba(120,153,187,0.2);
-    }
-    .archive-char { font-size: 12px; color: var(--cyan); }
-    .archive-msg { font-size: 13px; color: var(--text-dim); line-height: 1.6; white-space: pre-wrap; }
-    .no-archive { color: var(--text-dim); font-size: 13px; text-align: center; padding: 30px; }
+    .arc-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    .arc-date { font-size: 12px; color: var(--dim); }
+    .arc-char { font-size: 12px; color: var(--cyan); }
+    .arc-msg { font-size: 13px; color: var(--dim); line-height: 1.7; white-space: pre-wrap; }
 
     /* エラー */
-    .error-msg { color: var(--skip); font-size: 13px; padding: 10px; background: rgba(255,102,68,0.1); border-radius: 4px; }
+    .err { background: rgba(255,102,68,0.1); border: 1px solid rgba(255,102,68,0.3); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--skip); margin-top: 8px; }
+
+    /* 追加フォームの折りたたみ */
+    .add-toggle {
+      width: 100%;
+      min-height: var(--safe);
+      background: var(--bg3);
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      color: var(--cyan);
+      font-family: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 8px;
+      -webkit-appearance: none;
+    }
+    .add-form { display: none; background: var(--bg3); border: 1px solid var(--cyan-dim); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+    .add-form.open { display: block; }
   </style>
 </head>
 <body>
+<div class="app">
 
-<header>
-  <div>
-    <div class="logo">◈ EARTH DEFENSE OPS</div>
-    <div class="logo-sub">地球防衛オペレーション</div>
-  </div>
-  <div class="status-dot"></div>
-</header>
-
-<div class="tabs">
-  <div class="tab active" onclick="switchTab('base')">作戦本部</div>
-  <div class="tab" onclick="switchTab('archive')">戦績アーカイブ</div>
-</div>
-
-<!-- ===== 作戦本部タブ ===== -->
-<div id="tab-base" class="content active">
-
-  <div class="add-mission">
-    <div class="add-mission-title">▶ 新規ミッション登録</div>
-    <div class="input-row">
-      <input type="text" id="goalInput" placeholder="継続したいこと（例：毎日スクワット20回）" />
-      <button class="btn btn-primary" id="startBtn" onclick="startMission()">ミッション開始</button>
+  <!-- ヘッダー -->
+  <header>
+    <div>
+      <div class="logo">◈ EARTH DEFENSE OPS</div>
+      <div class="logo-sub">地球防衛オペレーション</div>
     </div>
-  </div>
+    <div class="dot"></div>
+  </header>
 
-  <div class="section-title">▶ アクティブミッション</div>
-  <div class="mission-list" id="missionList">
-    <div class="no-missions">
-      <div class="loading"><div class="spinner"></div>ミッション情報を読み込み中…</div>
+  <!-- スクロール本文 -->
+  <div class="scroll">
+
+    <!-- ===== 作戦本部 ===== -->
+    <div id="tab-base" class="tab active pad">
+
+      <!-- 新規ミッション追加フォーム -->
+      <button class="add-toggle" onclick="toggleAddForm()">＋ 新規ミッション登録</button>
+      <div class="add-form" id="addForm">
+        <input type="text" id="goalInput" placeholder="継続したいこと（例：毎日スクワット20回）" />
+        <button class="btn btn-primary" id="startBtn" onclick="startMission()">
+          ミッション開始
+        </button>
+      </div>
+
+      <!-- ミッション一覧 -->
+      <div class="section-label">▶ アクティブミッション</div>
+      <div id="missionList">
+        <div class="loading-row"><div class="spin"></div>読み込み中…</div>
+      </div>
+
+      <div class="section-gap"></div>
+
+      <!-- 司令室 -->
+      <div id="commandArea">
+        <div class="empty">↑ ミッションを選択して<br>今日の通信官を呼び出せ</div>
+      </div>
+
     </div>
-  </div>
 
-  <div id="commandArea">
-    <div class="command-room">
-      <div class="select-prompt">↑ ミッションを選択して今日のキャラクターを呼び出せ</div>
+    <!-- ===== アーカイブ ===== -->
+    <div id="tab-archive" class="tab pad">
+      <div class="section-label">▶ ミッション選択</div>
+      <div class="archive-select-wrap">
+        <select id="archiveSelect" onchange="loadArchive()">
+          <option value="">-- ミッションを選択 --</option>
+        </select>
+      </div>
+      <div id="archiveList">
+        <div class="empty">ミッションを選択してください</div>
+      </div>
     </div>
-  </div>
-</div>
 
-<!-- ===== アーカイブタブ ===== -->
-<div id="tab-archive" class="content">
-  <div class="archive-header">
-    <div class="section-title" style="margin:0">▶ ミッション選択</div>
-    <select class="archive-mission-select" id="archiveSelect" onchange="loadArchive()">
-      <option value="">-- ミッションを選択 --</option>
-    </select>
-  </div>
-  <div class="archive-list" id="archiveList">
-    <div class="no-archive">ミッションを選択してください</div>
-  </div>
-</div>
+  </div><!-- /scroll -->
+
+  <!-- ボトムナビ -->
+  <nav>
+    <button class="nav-btn active" id="nav-base" onclick="switchTab('base')">
+      <span class="icon">⚡</span>作戦本部
+    </button>
+    <button class="nav-btn" id="nav-archive" onclick="switchTab('archive')">
+      <span class="icon">📂</span>戦績
+    </button>
+  </nav>
+
+</div><!-- /app -->
 
 <script>
-  let missions = [];
-  let selectedMissionId = localStorage.getItem('selectedMissionId') || null;
+  var missions = [];
+  var selectedId = localStorage.getItem('selectedMissionId') || null;
 
   // ============================================================
   // タブ切り替え
   // ============================================================
   function switchTab(name) {
-    document.querySelectorAll('.tab').forEach((t, i) => {
-      t.classList.toggle('active', ['base','archive'][i] === name);
+    ['base','archive'].forEach(function(n) {
+      document.getElementById('tab-' + n).classList.toggle('active', n === name);
+      document.getElementById('nav-' + n).classList.toggle('active', n === name);
     });
-    document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
-    document.getElementById('tab-' + name).classList.add('active');
     if (name === 'archive') syncArchiveSelect();
+  }
+
+  // ============================================================
+  // 追加フォームのトグル
+  // ============================================================
+  function toggleAddForm() {
+    var f = document.getElementById('addForm');
+    f.classList.toggle('open');
+    if (f.classList.contains('open')) document.getElementById('goalInput').focus();
   }
 
   // ============================================================
@@ -400,14 +448,13 @@
   window.onload = function() {
     google.script.run
       .withSuccessHandler(function(list) {
-        missions = list;
+        missions = list || [];
         renderMissions();
-        if (selectedMissionId) {
-          const exists = missions.find(m => m.id === selectedMissionId);
-          if (exists) loadTodayMission(selectedMissionId);
+        if (selectedId && missions.find(function(m){ return m.id === selectedId; })) {
+          loadTodayMission(selectedId);
         }
       })
-      .withFailureHandler(showError)
+      .withFailureHandler(showErr)
       .getMissions();
   };
 
@@ -415,122 +462,127 @@
   // ミッション一覧描画
   // ============================================================
   function renderMissions() {
-    const list = document.getElementById('missionList');
+    var el = document.getElementById('missionList');
     if (!missions.length) {
-      list.innerHTML = '<div class="no-missions">アクティブなミッションはありません。新規登録してください。</div>';
+      el.innerHTML = '<div class="empty">ミッションがありません。<br>上の「＋」から登録してください。</div>';
       return;
     }
-    list.innerHTML = missions.map(m => `
-      <div class="mission-card${m.id === selectedMissionId ? ' selected' : ''}" onclick="selectMission('${m.id}')">
-        <div class="goal">${escHtml(m.goalText)}</div>
-        <div class="date">${m.createdDate}</div>
-        <button class="mission-delete" onclick="removeMission(event,'${m.id}')" title="ミッション終了">×</button>
-      </div>
-    `).join('');
+    el.innerHTML = missions.map(function(m) {
+      return '<div class="mission-card' + (m.id === selectedId ? ' selected' : '') + '" onclick="selectMission(\'' + m.id + '\')">'
+        + '<div><div class="goal">' + esc(m.goalText) + '</div><div class="meta">' + m.createdDate + '</div></div>'
+        + '<button class="del-btn" onclick="removeMission(event,\'' + m.id + '\')">×</button>'
+        + '</div>';
+    }).join('');
   }
 
   // ============================================================
   // ミッション選択
   // ============================================================
-  function selectMission(missionId) {
-    selectedMissionId = missionId;
-    localStorage.setItem('selectedMissionId', missionId);
+  function selectMission(id) {
+    selectedId = id;
+    localStorage.setItem('selectedMissionId', id);
     renderMissions();
-    loadTodayMission(missionId);
+    loadTodayMission(id);
+    // スクロールして司令室を表示
+    setTimeout(function() {
+      var el = document.getElementById('commandArea');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   }
 
   // ============================================================
-  // 今日のミッション（キャラ）読み込み
+  // 今日のキャラ読み込み
   // ============================================================
-  function loadTodayMission(missionId) {
-    const mission = missions.find(m => m.id === missionId);
-    const area = document.getElementById('commandArea');
-    area.innerHTML = `
-      <div class="mission-info">
-        ${mission ? '<b>If-Then:</b> ' + escHtml(mission.ifThenTrigger) + '<br><b>使命:</b> ' + escHtml(mission.worldStory) : ''}
-      </div>
-      <div class="command-room">
-        <div class="loading"><div class="spinner"></div>並行世界から通信官を呼び出し中…</div>
-      </div>`;
+  function loadTodayMission(id) {
+    var mission = missions.find(function(m){ return m.id === id; });
+    var area = document.getElementById('commandArea');
+    area.innerHTML = (mission
+      ? '<div class="if-then-box"><b>If-Then：</b>' + esc(mission.ifThenTrigger)
+        + '<br><b>使命：</b>' + esc(mission.worldStory) + '</div>'
+      : '')
+      + '<div class="command-room"><div class="loading-row"><div class="spin"></div>通信官を呼び出し中…</div></div>';
 
     google.script.run
-      .withSuccessHandler(function(data) { renderCommandRoom(data, missionId); })
-      .withFailureHandler(showError)
-      .getTodayMission(missionId);
+      .withSuccessHandler(function(data) { renderCommandRoom(data, id); })
+      .withFailureHandler(showErr)
+      .getTodayMission(id);
   }
 
-  function renderCommandRoom(data, missionId) {
-    const mission = missions.find(m => m.id === missionId);
-    const area = document.getElementById('commandArea');
-    const resultBadge = data.result === 'done'
-      ? '<span class="badge-done">✓ 本日任務完了</span>'
+  // ============================================================
+  // 司令室描画
+  // ============================================================
+  function renderCommandRoom(data, id) {
+    var mission = missions.find(function(m){ return m.id === id; });
+    var area = document.getElementById('commandArea');
+
+    var badge = data.result === 'done'
+      ? '<span class="badge badge-done">✓ 本日完了</span>'
       : data.result === 'skip'
-      ? '<span class="badge-skip">⚡ タイムリープ発動済</span>'
+      ? '<span class="badge badge-skip">⚡ タイムリープ済</span>'
       : '';
 
-    area.innerHTML = `
-      <div class="mission-info">
-        ${mission ? '<b>If-Then:</b> ' + escHtml(mission.ifThenTrigger) + '<br><b>使命:</b> ' + escHtml(mission.worldStory) : ''}
-      </div>
-      <div class="command-room">
-        <div class="command-room-header">
-          <span class="char-badge">${escHtml(data.characterName)}</span>
-          <span class="char-personality">${escHtml(data.characterPersonality)}</span>
-          ${resultBadge}
-        </div>
-        <div class="char-message" id="charMessage">${escHtml(data.responseText)}</div>
-      </div>
-      <div class="report-area">
-        <button class="btn btn-done" id="doneBtn" onclick="report('done','${missionId}')" ${data.result ? 'disabled' : ''}>
-          ✦ 任務完了！
-        </button>
-        <button class="btn btn-skip" id="skipBtn" onclick="report('skip','${missionId}')" ${data.result ? 'disabled' : ''}>
-          ⚡ エネルギー不足…
-        </button>
-      </div>
-      <div id="reportLoading"></div>`;
+    var btnsHtml = '<div class="report-row">'
+      + '<button class="btn btn-done" id="doneBtn" onclick="report(\'done\',\'' + id + '\')"' + (data.result ? ' disabled' : '') + '>✦ 任務完了！</button>'
+      + '<button class="btn btn-skip" id="skipBtn" onclick="report(\'skip\',\'' + id + '\')"' + (data.result ? ' disabled' : '') + '>⚡ エネルギー不足…</button>'
+      + '</div>';
+
+    area.innerHTML = (mission
+      ? '<div class="if-then-box"><b>If-Then：</b>' + esc(mission.ifThenTrigger)
+        + '<br><b>使命：</b>' + esc(mission.worldStory) + '</div>'
+      : '')
+      + '<div class="command-room">'
+      +   '<div class="char-header">'
+      +     '<span class="char-name">' + esc(data.characterName) + '</span>'
+      +     badge
+      +     '<span class="char-personality">' + esc(data.characterPersonality) + '</span>'
+      +   '</div>'
+      +   '<div class="char-msg" id="charMsg">' + esc(data.responseText) + '</div>'
+      + '</div>'
+      + btnsHtml
+      + '<div id="reportStatus"></div>';
   }
 
   // ============================================================
-  // 報告送信
+  // 報告
   // ============================================================
-  function report(type, missionId) {
-    document.getElementById('doneBtn').disabled = true;
-    document.getElementById('skipBtn').disabled = true;
-    document.getElementById('reportLoading').innerHTML =
-      '<div class="loading" style="margin-top:12px"><div class="spinner"></div>並行世界へ送信中…</div>';
+  function report(type, id) {
+    var doneBtn = document.getElementById('doneBtn');
+    var skipBtn = document.getElementById('skipBtn');
+    var statusEl = document.getElementById('reportStatus');
+    doneBtn.disabled = true;
+    skipBtn.disabled = true;
+    statusEl.innerHTML = '<div class="loading-row"><div class="spin"></div>並行世界へ送信中…</div>';
 
-    const fn = type === 'done' ? 'reportDone' : 'reportSkip';
+    var fn = type === 'done' ? 'reportDone' : 'reportSkip';
     google.script.run
       .withSuccessHandler(function(result) {
-        document.getElementById('charMessage').textContent = result.response;
-        document.getElementById('reportLoading').innerHTML = '';
-        const badge = type === 'done'
-          ? '<span class="badge-done">✓ 本日任務完了</span>'
-          : '<span class="badge-skip">⚡ タイムリープ発動済</span>';
-        const header = document.querySelector('.command-room-header');
+        document.getElementById('charMsg').textContent = result.response;
+        statusEl.innerHTML = '';
+        var badge = type === 'done'
+          ? '<span class="badge badge-done">✓ 本日完了</span>'
+          : '<span class="badge badge-skip">⚡ タイムリープ済</span>';
+        var header = document.querySelector('.char-header');
         if (header) {
-          const existing = header.querySelector('.badge-done, .badge-skip, .badge-pending');
-          if (existing) existing.remove();
+          var old = header.querySelector('.badge');
+          if (old) old.remove();
           header.insertAdjacentHTML('beforeend', badge);
         }
       })
-      .withFailureHandler(function(err) {
-        document.getElementById('reportLoading').innerHTML = '<div class="error-msg">エラー: ' + err.message + '</div>';
-        document.getElementById('doneBtn').disabled = false;
-        document.getElementById('skipBtn').disabled = false;
+      .withFailureHandler(function(e) {
+        statusEl.innerHTML = '<div class="err">エラー：' + esc(e.message || String(e)) + '</div>';
+        doneBtn.disabled = false;
+        skipBtn.disabled = false;
       })
-      [fn](missionId);
+      [fn](id);
   }
 
   // ============================================================
   // 新規ミッション開始
   // ============================================================
   function startMission() {
-    const goal = document.getElementById('goalInput').value.trim();
+    var goal = document.getElementById('goalInput').value.trim();
     if (!goal) { alert('継続したいことを入力してください'); return; }
-
-    const btn = document.getElementById('startBtn');
+    var btn = document.getElementById('startBtn');
     btn.disabled = true;
     btn.textContent = '生成中…';
 
@@ -541,10 +593,11 @@
         document.getElementById('goalInput').value = '';
         btn.disabled = false;
         btn.textContent = 'ミッション開始';
+        document.getElementById('addForm').classList.remove('open');
         selectMission(mission.id);
       })
-      .withFailureHandler(function(err) {
-        showError(err);
+      .withFailureHandler(function(e) {
+        showErr(e);
         btn.disabled = false;
         btn.textContent = 'ミッション開始';
       })
@@ -552,38 +605,34 @@
   }
 
   // ============================================================
-  // ミッション削除（アーカイブ化）
+  // ミッション削除
   // ============================================================
-  function removeMission(event, missionId) {
+  function removeMission(event, id) {
     event.stopPropagation();
-    if (!confirm('このミッションを終了してアーカイブに移しますか？')) return;
-
+    if (!confirm('このミッションを終了しますか？')) return;
     google.script.run
       .withSuccessHandler(function() {
-        missions = missions.filter(m => m.id !== missionId);
-        if (selectedMissionId === missionId) {
-          selectedMissionId = null;
+        missions = missions.filter(function(m){ return m.id !== id; });
+        if (selectedId === id) {
+          selectedId = null;
           localStorage.removeItem('selectedMissionId');
-          document.getElementById('commandArea').innerHTML =
-            '<div class="command-room"><div class="select-prompt">↑ ミッションを選択して今日のキャラクターを呼び出せ</div></div>';
+          document.getElementById('commandArea').innerHTML = '<div class="empty">↑ ミッションを選択して<br>今日の通信官を呼び出せ</div>';
         }
         renderMissions();
         syncArchiveSelect();
       })
-      .withFailureHandler(showError)
-      .deleteMission(missionId);
+      .withFailureHandler(showErr)
+      .deleteMission(id);
   }
 
   // ============================================================
   // アーカイブ
   // ============================================================
   function syncArchiveSelect() {
-    const sel = document.getElementById('archiveSelect');
+    var sel = document.getElementById('archiveSelect');
     sel.innerHTML = '<option value="">-- ミッションを選択 --</option>';
-    // アクティブ + アーカイブ済み両方を取得するため getMissions のキャッシュだけでなく全ロードが理想だが
-    // ここでは missions（アクティブ）のみ表示
-    missions.forEach(m => {
-      const opt = document.createElement('option');
+    missions.forEach(function(m) {
+      var opt = document.createElement('option');
       opt.value = m.id;
       opt.textContent = m.goalText;
       sel.appendChild(opt);
@@ -591,53 +640,39 @@
   }
 
   function loadArchive() {
-    const missionId = document.getElementById('archiveSelect').value;
-    if (!missionId) return;
-    const list = document.getElementById('archiveList');
-    list.innerHTML = '<div class="loading"><div class="spinner"></div>戦績を取得中…</div>';
+    var id = document.getElementById('archiveSelect').value;
+    var list = document.getElementById('archiveList');
+    if (!id) { list.innerHTML = '<div class="empty">ミッションを選択してください</div>'; return; }
+    list.innerHTML = '<div class="loading-row"><div class="spin"></div>戦績を取得中…</div>';
 
     google.script.run
       .withSuccessHandler(function(logs) {
-        if (!logs.length) {
-          list.innerHTML = '<div class="no-archive">まだ戦績がありません。</div>';
-          return;
-        }
-        list.innerHTML = logs.map(log => {
-          const badge = log.result === 'done'
-            ? '<span class="badge-done">✓ 完了</span>'
+        if (!logs || !logs.length) { list.innerHTML = '<div class="empty">まだ戦績がありません。</div>'; return; }
+        list.innerHTML = logs.map(function(log) {
+          var badge = log.result === 'done'
+            ? '<span class="badge badge-done">✓ 完了</span>'
             : log.result === 'skip'
-            ? '<span class="badge-skip">⚡ サボり</span>'
-            : '<span class="badge-pending">- 未報告</span>';
-          return `
-            <div class="archive-card">
-              <div class="archive-card-header">
-                <span class="archive-date">${log.date}</span>
-                ${badge}
-                <span class="archive-char">${escHtml(log.characterName)}</span>
-              </div>
-              ${log.responseText ? '<div class="archive-msg">' + escHtml(log.responseText) + '</div>' : ''}
-            </div>`;
+            ? '<span class="badge badge-skip">⚡ サボり</span>'
+            : '<span class="badge badge-wait">- 未報告</span>';
+          return '<div class="arc-card">'
+            + '<div class="arc-head"><span class="arc-date">' + log.date + '</span>' + badge + '<span class="arc-char">' + esc(log.characterName) + '</span></div>'
+            + (log.responseText ? '<div class="arc-msg">' + esc(log.responseText) + '</div>' : '')
+            + '</div>';
         }).join('');
       })
-      .withFailureHandler(showError)
-      .getArchive(missionId);
+      .withFailureHandler(showErr)
+      .getArchive(id);
   }
 
   // ============================================================
   // ユーティリティ
   // ============================================================
-  function showError(err) {
-    const msg = err && err.message ? err.message : String(err);
-    alert('エラーが発生しました：' + msg);
+  function showErr(e) {
+    alert('エラー：' + (e && e.message ? e.message : String(e)));
   }
-
-  function escHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+  function esc(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 </script>
 </body>
