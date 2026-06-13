@@ -5,10 +5,31 @@ function doGet() {
 }
 
 // ============================================================
+// Secret Manager からシークレットを取得
+// ============================================================
+const GCP_PROJECT_ID = 'raytech-solutions-development';
+
+function getSecret_(secretName) {
+  const token = ScriptApp.getOAuthToken();
+  const url = 'https://secretmanager.googleapis.com/v1/projects/' + GCP_PROJECT_ID
+    + '/secrets/' + secretName + '/versions/latest:access';
+
+  const res = UrlFetchApp.fetch(url, {
+    headers: { Authorization: 'Bearer ' + token },
+    muteHttpExceptions: true
+  });
+  const json = JSON.parse(res.getContentText());
+  if (json.error) throw new Error('Secret Manager エラー: ' + json.error.message);
+
+  // payload.data は base64 エンコード済み
+  return Utilities.newBlob(Utilities.base64Decode(json.payload.data)).getDataAsString();
+}
+
+// ============================================================
 // Gemini API ヘルパー
 // ============================================================
 function callGemini_(systemPrompt, userMessage) {
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  const apiKey = getSecret_('GEMINI_API_KEY');
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey;
 
   const payload = {
