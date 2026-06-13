@@ -23,9 +23,9 @@
     /* ======= レイアウト ======= */
     .app { display: flex; flex-direction: column; height: 100dvh; }
     header { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 14px 16px 12px; background: linear-gradient(180deg, #081020 0%, var(--bg) 100%); border-bottom: 1px solid var(--border); }
-    .logo { font-size: 17px; font-weight: bold; color: var(--cyan); text-shadow: 0 0 10px var(--cyan); letter-spacing: 1px; }
+    .logo { font-size: 17px; font-weight: bold; color: var(--cyan); letter-spacing: 1px; }
     .logo-sub { font-size: 9px; color: var(--dim); letter-spacing: 3px; margin-top: 1px; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--done); box-shadow: 0 0 8px var(--done); margin-left: auto; animation: blink 2s infinite; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--done); margin-left: auto; animation: blink 2s infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
     .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .pad { padding: 16px; }
@@ -33,7 +33,6 @@
     .nav-btn { flex: 1; min-height: var(--safe); background: none; border: none; color: var(--dim); font-family: inherit; font-size: 11px; letter-spacing: 1px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 0; }
     .nav-btn .icon { font-size: 20px; line-height: 1; }
     .nav-btn.active { color: var(--cyan); }
-    .nav-btn.active .icon { filter: drop-shadow(0 0 4px var(--cyan)); }
 
     /* ======= タブ ======= */
     .tab { display: none; }
@@ -61,7 +60,7 @@
     /* ======= ミッションカード ======= */
     .mission-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 14px; cursor: pointer; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; transition: border-color .2s; }
     .mission-card:active { background: #0D1E35; }
-    .mission-card.selected { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan-dim); background: #0D1E35; }
+    .mission-card.selected { border-color: var(--cyan); background: #0D1E35; }
     .mission-card .goal { flex: 1; font-size: 15px; line-height: 1.4; }
     .mission-card .meta { font-size: 11px; color: var(--dim); margin-top: 2px; }
     .del-btn { background: none; border: none; color: var(--dim); font-size: 20px; padding: 6px; cursor: pointer; min-width: var(--safe); min-height: var(--safe); display: flex; align-items: center; justify-content: center; }
@@ -70,8 +69,8 @@
     .streak-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
     .streak-row { display: flex; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
     .streak-item { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 70px; }
-    .streak-num { font-size: 26px; font-weight: bold; color: var(--cyan); text-shadow: 0 0 8px var(--cyan-dim); line-height: 1; }
-    .streak-num.fire { color: var(--gold); text-shadow: 0 0 8px rgba(255,215,0,.4); }
+    .streak-num { font-size: 26px; font-weight: bold; color: var(--cyan); line-height: 1; }
+    .streak-num.fire { color: var(--gold); }
     .streak-label { font-size: 10px; color: var(--dim); letter-spacing: 1px; margin-top: 2px; }
     .progress-wrap { display: flex; flex-direction: column; gap: 4px; }
     .progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); }
@@ -83,7 +82,7 @@
     .if-then-box { background: var(--bg); border-left: 3px solid var(--cyan); border-radius: 0 8px 8px 0; padding: 10px 12px; font-size: 13px; line-height: 1.7; color: var(--dim); margin-bottom: 12px; }
     .if-then-box b { color: var(--cyan); }
     .command-room { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; min-height: 100px; }
-    .command-room.special { border-color: var(--gold); box-shadow: 0 0 16px rgba(255,215,0,.2); }
+    .command-room.special { border-color: var(--gold); }
     .char-header { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
     .char-name { background: rgba(0,85,187,.4); border: 1px solid var(--cyan); border-radius: 6px; padding: 4px 10px; font-size: 13px; color: var(--cyan); }
     .char-name.special { border-color: var(--gold); color: var(--gold); background: rgba(255,215,0,.1); }
@@ -111,7 +110,7 @@
     .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
     .cal-day-label { font-size: 9px; color: var(--dim); text-align: center; padding: 2px 0; }
     .cal-cell { aspect-ratio: 1; border-radius: 3px; background: var(--bg3); border: 1px solid var(--border); }
-    .cal-cell.done { background: var(--done); border-color: var(--done); box-shadow: 0 0 4px rgba(0,255,136,.4); }
+    .cal-cell.done { background: var(--done); border-color: var(--done); }
     .cal-cell.skip { background: var(--skip); border-color: var(--skip); opacity: .6; }
     .cal-cell.today { border-color: var(--cyan); }
     .cal-cell.future { opacity: .2; }
@@ -430,24 +429,19 @@ function reportMin(id) {
 function triggerDoneAnimation() {
   var overlay = document.getElementById('flashOverlay');
   overlay.classList.add('show');
-  setTimeout(function() { overlay.classList.remove('show'); }, 200);
+  setTimeout(function() { overlay.classList.remove('show'); }, 250);
 
   var container = document.getElementById('starsContainer');
   container.innerHTML = '';
-  for (var i = 0; i < 20; i++) {
-    (function(i) {
-      setTimeout(function() {
-        var star = document.createElement('div');
-        star.className = 'star';
-        star.style.left = Math.random() * 100 + 'vw';
-        star.style.top = '-10px';
-        star.style.animationDelay = (Math.random() * 0.3) + 's';
-        star.style.background = i % 3 === 0 ? '#FFD700' : '#00D4FF';
-        container.appendChild(star);
-        setTimeout(function() { if (star.parentNode) star.parentNode.removeChild(star); }, 1600);
-      }, i * 40);
-    })(i);
+  for (var i = 0; i < 10; i++) {
+    var star = document.createElement('div');
+    star.className = 'star';
+    star.style.left = (10 + i * 9) + 'vw';
+    star.style.animationDelay = (i * 0.06) + 's';
+    star.style.background = i % 2 === 0 ? '#FFD700' : '#00D4FF';
+    container.appendChild(star);
   }
+  setTimeout(function() { container.innerHTML = ''; }, 1400);
 }
 
 // ============================================================

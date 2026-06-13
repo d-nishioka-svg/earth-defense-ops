@@ -35,6 +35,14 @@ function parseJson_(text) {
 }
 
 // ============================================================
+// キャッシュヘルパー（Spreadsheet読み込みを5分間キャッシュ）
+// ============================================================
+const CACHE = CacheService.getScriptCache();
+function cacheGet_(key) { const v = CACHE.get(key); return v ? JSON.parse(v) : null; }
+function cachePut_(key, val) { try { CACHE.put(key, JSON.stringify(val), 300); } catch(e) {} }
+function cacheRemove_(key) { CACHE.remove(key); }
+
+// ============================================================
 // Spreadsheet ヘルパー
 // ============================================================
 function getSpreadsheet_() {
@@ -95,14 +103,18 @@ worldStory生成の絶対条件：
   const id = Utilities.getUuid();
   const now = today_();
   sheet.appendRow([id, goalText, data.ifThenTrigger, data.worldStory, now, 'active', timing || '']);
+  cacheRemove_('missions'); // ミッション追加でキャッシュ無効化
 
   return { id: id, goalText: goalText, ifThenTrigger: data.ifThenTrigger, worldStory: data.worldStory, createdDate: now, status: 'active', timing: timing || '' };
 }
 
 // ============================================================
-// ミッション一覧取得
+// ミッション一覧取得（キャッシュあり）
 // ============================================================
 function getMissions() {
+  const cached = cacheGet_('missions');
+  if (cached) return cached;
+
   const sheet = getMissionsSheet_();
   const data = sheet.getDataRange().getValues();
   const missions = [];
@@ -111,6 +123,7 @@ function getMissions() {
       missions.push({ id: data[i][0], goalText: data[i][1], ifThenTrigger: data[i][2], worldStory: data[i][3], createdDate: data[i][4], status: data[i][5], timing: data[i][6] || '' });
     }
   }
+  cachePut_('missions', missions);
   return missions;
 }
 
@@ -119,12 +132,20 @@ function getMissions() {
 // ============================================================
 function getTodayMission(missionId) {
   const todayStr = today_();
+  const cacheKey = 'today_' + missionId + '_' + todayStr;
+
+  // 今日のログキャッシュを確認
+  const cached = cacheGet_(cacheKey);
+  if (cached) return cached;
+
   const logsSheet = getDailyLogsSheet_();
   const logsData = logsSheet.getDataRange().getValues();
 
   for (let i = 1; i < logsData.length; i++) {
     if (String(logsData[i][1]) === String(missionId) && String(logsData[i][2]) === todayStr) {
-      return { logId: logsData[i][0], characterName: logsData[i][3], characterPersonality: logsData[i][4], result: logsData[i][5], responseText: logsData[i][6] };
+      const result = { logId: logsData[i][0], characterName: logsData[i][3], characterPersonality: logsData[i][4], result: logsData[i][5], responseText: logsData[i][6] };
+      cachePut_(cacheKey, result);
+      return result;
     }
   }
 
@@ -166,7 +187,9 @@ ${mission.timing ? 'タイミング：' + mission.timing : ''}
   const logId = Utilities.getUuid();
   logsSheet.appendRow([logId, missionId, todayStr, charData.characterName, charData.characterPersonality, '', charData.greeting]);
 
-  return { logId: logId, characterName: charData.characterName, characterPersonality: charData.characterPersonality, result: '', responseText: charData.greeting, isSpecial: isSpecial };
+  const newEntry = { logId: logId, characterName: charData.characterName, characterPersonality: charData.characterPersonality, result: '', responseText: charData.greeting, isSpecial: isSpecial };
+  cachePut_('today_' + missionId + '_' + todayStr, newEntry);
+  return newEntry;
 }
 
 // ============================================================
@@ -218,13 +241,23 @@ function report_(missionId, type) {
     logsSheet.getRange(rowIndex, 7).setValue(response);
   }
 
+  // キャッシュ更新（result と responseText を反映）
+  const cacheKey = 'today_' + missionId + '_' + todayStr;
+  const cached = cacheGet_(cacheKey);
+  if (cached) { cached.result = type; cached.responseText = response; cachePut_(cacheKey, cached); }
+  cacheRemove_('stats_' + missionId); // 統計キャッシュも無効化
+
   return { response: response };
 }
 
 // ============================================================
-// 統計・ストリーク・カレンダーデータ取得
+// 統計・ストリーク・カレンダーデータ取得（キャッシュあり）
 // ============================================================
 function getStats(missionId) {
+  const statsCacheKey = 'stats_' + missionId;
+  const cached = cacheGet_(statsCacheKey);
+  if (cached) return cached;
+
   const logsSheet = getDailyLogsSheet_();
   const logsData = logsSheet.getDataRange().getValues();
   const missionsSheet = getMissionsSheet_();
@@ -291,7 +324,9 @@ function getStats(missionId) {
     totalDays = Math.floor((new Date() - new Date(createdDate)) / 86400000) + 1;
   }
 
-  return { currentStreak: currentStreak, bestStreak: bestStreak, totalDone: totalDone, totalDays: totalDays, calendarData: calendarData, createdDate: String(createdDate) };
+  const stats = { currentStreak: currentStreak, bestStreak: bestStreak, totalDone: totalDone, totalDays: totalDays, calendarData: calendarData, createdDate: String(createdDate) };
+  cachePut_(statsCacheKey, stats);
+  return stats;
 }
 
 // ============================================================
@@ -317,7 +352,9 @@ function deleteMission(missionId) {
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(missionId)) {
-      sheet.getRange(i + 1, 6).setValue('archived'); return true;
+      sheet.getRange(i + 1, 6).setValue('archived');
+      cacheRemove_('missions');
+      return true;
     }
   }
   return false;
