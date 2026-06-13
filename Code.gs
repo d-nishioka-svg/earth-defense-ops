@@ -37,10 +37,18 @@ function parseJson_(text) {
 // ============================================================
 // キャッシュヘルパー（Spreadsheet読み込みを5分間キャッシュ）
 // ============================================================
-const CACHE = CacheService.getScriptCache();
-function cacheGet_(key) { const v = CACHE.get(key); return v ? JSON.parse(v) : null; }
-function cachePut_(key, val) { try { CACHE.put(key, JSON.stringify(val), 300); } catch(e) {} }
-function cacheRemove_(key) { CACHE.remove(key); }
+function cacheGet_(key) {
+  try {
+    const v = CacheService.getScriptCache().get(key);
+    return v ? JSON.parse(v) : null;
+  } catch(e) { return null; }
+}
+function cachePut_(key, val) {
+  try { CacheService.getScriptCache().put(key, JSON.stringify(val), 300); } catch(e) {}
+}
+function cacheRemove_(key) {
+  try { CacheService.getScriptCache().remove(key); } catch(e) {}
+}
 
 // ============================================================
 // Spreadsheet ヘルパー
@@ -80,20 +88,20 @@ function today_() {
 // ミッション作成（timing追加 + プロンプト改善）
 // ============================================================
 function createMission(goalText, timing) {
-  const systemPrompt = `あなたは無限の並行世界を管理するAIシステムです。
-ユーザーの「継続したいこと」から、If-Thenプランニングと壮大な世界観を生成します。
-必ず以下のJSON形式のみで応答し、他の文章は一切含めないでください。
+  const systemPrompt = `あなたは並行世界のミッション設計AIです。
+以下のJSON形式のみで応答してください。他の文章は不要です。
 
 {
-  "ifThenTrigger": "If-Thenトリガー文（「〇〇したら（If）、△△する（Then）」という形式で。タイミングが指定されている場合はそれを使う）",
-  "worldStory": "壮大な並行世界の危機ストーリー（3〜5文）"
+  "ifThenTrigger": "If-Thenトリガー（例：「お風呂が沸いたアラームが鳴ったら（If）、スクワットを20回やる（Then）」）",
+  "worldStory": "なぜこの行動が並行世界を救うのかの説明（2〜3文）"
 }
 
-worldStory生成の絶対条件：
-- 「この具体的な行動（例：スクワット）が、どんな物理・化学・量子的メカニズムで並行世界を救うのか」を必ず説明すること
-- 【行動】→【具体的メカニズム（擬似科学OK）】→【世界への影響】という因果関係の流れを作ること
-- 例：「スクワットで収縮する大腿四頭筋が3.7Hzの生体振動を発生させ、それが量子トンネル効果で並行地球の防衛シールドエネルギーに変換される。あと0.003テスラ分のエネルギーが足りなければシールドは崩壊する」
-- 笑えるくらい大げさでOKだが、行動と結果の論理的つながりを必ず入れること`;
+worldStoryのルール（これを守らないと失格）：
+① 【行動の具体的な部位や現象】→【擬似科学的なメカニズム】→【何が起こるか】の順に書く
+   例：「スクワットで収縮する大腿四頭筋が発する微弱な生体電流が、並行地球の隕石防衛システムの動力源になっている。サボると向こうのシベリアあたりが吹き飛ぶ」
+② 難しいSF用語・抽象的なカタカナ語は禁止（「クロノス波紋」「エターナル・ゼニス」などNG）
+③ 短文で。中学生に説明するくらいのわかりやすさで書く
+④ サボった場合の結果を「〇〇が吹き飛ぶ」「〇〇が溶ける」など具体的・視覚的に書く`;
 
   const userMsg = '継続したいこと：' + goalText + (timing ? '\nタイミング：' + timing : '');
   const result = callGemini_(systemPrompt, userMsg);
@@ -164,22 +172,28 @@ function getTodayMission(missionId) {
   const totalLogs = logsData.length - 1;
   const isSpecial = (totalLogs % 10 === 0);
 
-  const systemPrompt = `あなたは無限の並行世界を管理するAIシステムです。
-毎日違う「通信官」キャラクターを生成して大輝に指令を届けます。
-必ず以下のJSON形式のみで応答し、他の文章は一切含めないでください。
+  const systemPrompt = `あなたは毎日違うキャラクターで大輝に並行世界の指令を届けるAIです。
+以下のJSON形式のみで応答してください。
 
 {
-  "characterName": "通信官の名前（ユニークで奇妙な名前）",
-  "characterPersonality": "性格・口調の説明（一文）",
-  "greeting": "そのキャラになりきって大輝に今日のミッションを伝えるセリフ（200字程度）"
-}` + (isSpecial ? '\n\n【特別指令】今日は特別な記念日です。通常の2倍以上のテンションで、特別な演出を加えてください。名前も「超越」「伝説」「最終」などの称号を付けてください。' : '');
+  "characterName": "キャラの名前（短くて覚えやすい。例：「元銭湯店主のジロさん」「謎のギャル」「迷子の宇宙人タコ太郎」）",
+  "characterPersonality": "性格・口調（一文。例：「関西弁でノリが軽いおっさん」）",
+  "greeting": "大輝へのセリフ（150字程度）"
+}
+
+greetingのルール（必ず守ること）：
+① 「大輝、」で始める
+② 【${mission.timing || 'トリガー'}（If）、${mission.goalText}をやる（Then）】という形式でミッションを一言で伝える
+③ なぜこの行動が必要かを、そのキャラの口調で面白くかつ具体的に説明する（難しいSF語禁止）
+④ サボった場合の結果を「〇〇が吹き飛ぶ」など視覚的に一言で入れる
+⑤ 短文を積み重ねるスタイル。説明文じゃなく会話文で書く` + (isSpecial ? '\n\n【今日は特別】通常の3倍テンション・キャラ名に「伝説の」「最後の」などの称号をつけて、いつもより笑えるギャグを一発入れること。' : '');
 
   const userMsg = `ミッション：${mission.goalText}
 If-Thenトリガー：${mission.ifThenTrigger}
-並行世界の危機：${mission.worldStory}
-${mission.timing ? 'タイミング：' + mission.timing : ''}
+並行世界の危機（設定）：${mission.worldStory}
+タイミング：${mission.timing || 'なし'}
 
-今日の通信官キャラを生成して、大輝に指令を伝えてください。`;
+上記の設定を使って、今日のキャラを生成してください。`;
 
   const result = callGemini_(systemPrompt, userMsg);
   const charData = parseJson_(result);
@@ -220,18 +234,23 @@ function report_(missionId, type) {
   }
 
   const systemPrompt = `あなたは並行世界の通信官「${charName}」です。
-性格・口調：${charPersonality}
-完全にそのキャラになりきって応答してください。`;
+口調・性格：${charPersonality}
+そのキャラになりきって、短文を積み重ねる会話スタイルで応答してください。難しいSF語・抽象的なカタカナ語は禁止。`;
 
   let userMsg;
   if (type === 'done') {
-    userMsg = `大輝が今日のミッション「${mission.goalText}」を完了しました！
-並行世界の危機「${mission.worldStory}」が今日も回避されました！
-世界が救われたことをキャラ全開で大絶賛してください（150字程度）。`;
+    userMsg = `大輝が今日「${mission.goalText}」を完了しました。
+以下の要素を含めて150字以内でリアクションしてください：
+・具体的に何が救われたか（「シベリアが吹き飛ばずに済んだ」レベルの視覚的表現）
+・大輝を褒める一言
+・短文・会話文スタイルで`;
   } else {
-    userMsg = `大輝が「エネルギー不足」でミッション「${mission.goalText}」ができないと言っています。
-並行世界の危機「${mission.worldStory}」が今まさに発生しています。
-世界崩壊の危機を煽りつつ、「タイムリープ特異点発動」として「たった1回（または1分）だけやればセーフ」という最小化した目標を提示してください（200字程度）。`;
+    userMsg = `大輝が「今日は無理」と言っています。ミッション：「${mission.goalText}」
+以下の要素を200字以内で：
+・具体的に何がやばいことになるか（視覚的に一言）
+・でも「1回だけやれば時空がリセットされてセーフ」という抜け道を提示
+・最後は「1回だけでええから！」みたいなノリで背中を押す
+・短文・会話文スタイル・SFっぽい難しい語禁止`;
   }
 
   const response = callGemini_(systemPrompt, userMsg);
