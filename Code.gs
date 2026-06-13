@@ -93,17 +93,15 @@ function createMission(goalText, timing) {
 
 {
   "ifThenTrigger": "If-Thenトリガー（例：「お風呂が沸いたアラームが鳴ったら（If）、スクワットを20回やる（Then）」）",
-  "worldStory": "なぜこの行動が並行世界を救うのかの説明（2〜3文）"
+  "worldStory": "なぜこの行動が並行世界を救うのかの説明（2〜3文）",
+  "worldSetting": "並行世界の舞台設定（例：「第七鉱区の鍛冶工房」「並行世界Ωのクラブシーン」「星間交易船の機関室」など、キャラが住む世界の具体的な場所・雰囲気）"
 }
 
 worldStoryのルール：
-① 【行動の具体的な部位・現象】→【擬似科学的な理由（1文）】→【何が起きるか】の順に書く
-② 「くすっと笑える」ための必須要素を入れること：
-   - 具体的な固有名詞（「シベリア」「豊中市」「近所のセブン」「阪神タイガース」など）で被害を表す
-   - 行動の小ささ（スクワット）と結果の大きさ（宇宙崩壊）のギャップを最大化する
-   - 最後の一文でキャラが「…っていう話らしいんだよな」「まあそういうこと」と少し力を抜く（緊張と緩和）
-③ 抽象的なSF語禁止。中学生に話すくらいの言葉で
-④ 全体で3文以内。短くテンポよく`;
+① 行動（例：スクワット）→その行動が生み出す何らかのエネルギー・現象（擬似科学的でOK）→それが並行世界の危機をどう救うか、の流れで書く
+② 具体的な世界観を作ること：その世界独自の名称・設定・ルールを1つ入れる（「聖なる炉」「量子の重低音」「知識の火花」など）
+③ 抽象的なSF語禁止。平易な言葉で書く
+④ 全体で2〜3文。テンポよく`;
 
   const userMsg = '継続したいこと：' + goalText + (timing ? '\nタイミング：' + timing : '');
   const result = callGemini_(systemPrompt, userMsg);
@@ -112,10 +110,10 @@ worldStoryのルール：
   const sheet = getMissionsSheet_();
   const id = Utilities.getUuid();
   const now = today_();
-  sheet.appendRow([id, goalText, data.ifThenTrigger, data.worldStory, now, 'active', timing || '']);
+  sheet.appendRow([id, goalText, data.ifThenTrigger, data.worldStory, now, 'active', timing || '', data.worldSetting || '']);
   cacheRemove_('missions'); // ミッション追加でキャッシュ無効化
 
-  return { id: id, goalText: goalText, ifThenTrigger: data.ifThenTrigger, worldStory: data.worldStory, createdDate: now, status: 'active', timing: timing || '' };
+  return { id: id, goalText: goalText, ifThenTrigger: data.ifThenTrigger, worldStory: data.worldStory, createdDate: now, status: 'active', timing: timing || '', worldSetting: data.worldSetting || '' };
 }
 
 // ============================================================
@@ -130,7 +128,7 @@ function getMissions() {
   const missions = [];
   for (let i = 1; i < data.length; i++) {
     if (data[i][5] === 'active') {
-      missions.push({ id: data[i][0], goalText: data[i][1], ifThenTrigger: data[i][2], worldStory: data[i][3], createdDate: data[i][4], status: data[i][5], timing: data[i][6] || '' });
+      missions.push({ id: data[i][0], goalText: data[i][1], ifThenTrigger: data[i][2], worldStory: data[i][3], createdDate: data[i][4], status: data[i][5], timing: data[i][6] || '', worldSetting: data[i][7] || '' });
     }
   }
   cachePut_('missions', missions);
@@ -164,7 +162,7 @@ function getTodayMission(missionId) {
   let mission = null;
   for (let i = 1; i < missionsData.length; i++) {
     if (String(missionsData[i][0]) === String(missionId)) {
-      mission = { goalText: missionsData[i][1], ifThenTrigger: missionsData[i][2], worldStory: missionsData[i][3], timing: missionsData[i][6] || '' };
+      mission = { goalText: missionsData[i][1], ifThenTrigger: missionsData[i][2], worldStory: missionsData[i][3], timing: missionsData[i][6] || '', worldSetting: missionsData[i][7] || '' };
       break;
     }
   }
@@ -178,26 +176,25 @@ function getTodayMission(missionId) {
 以下のJSON形式のみで応答してください。
 
 {
-  "characterName": "キャラの名前（短くて覚えやすい。例：「元銭湯店主のジロさん」「謎のギャル」「迷子の宇宙人タコ太郎」）",
-  "characterPersonality": "性格・口調（一文。例：「関西弁でノリが軽いおっさん」）",
-  "greeting": "大輝へのセリフ（150字程度）"
+  "characterName": "キャラの名前（例：「第七鉱区の鍛冶頭ガルドン」「並行世界Ωの元DJニャンコ」「星間交易船の機関士マリー」）",
+  "characterPersonality": "性格・口調（一文。例：「荒っぽい職人言葉で話す」「だにゃ語尾の元気なネコ系」「冷静だが内心あせっている」）",
+  "greeting": "大輝への指令セリフ（200字程度）"
 }
 
 greetingのルール：
-① 「大輝、」で始める
-② 【${mission.timing || 'トリガー'}（If）→ ${mission.goalText}（Then）】の形式でミッションを明示する
-③ 「くすっと笑える」3つのテクニックを使うこと：
-   A. 具体的な固有名詞で危機を表す（「シベリア」「豊中市のイオン」「阪神タイガース」など実在の場所・もの）
-   B. 行動の小ささ（${mission.goalText}）と結果の大きさのギャップを強調する（スクワット1回で宇宙が救われる系）
-   C. 最後に1文だけキャラが少し冷静になって「…まあそういうことらしいから、よろしく」「理由はよくわからんけどな」的に力を抜く（シリアス→緩和の構造）
-④ 説明文NG。短文の会話文で。SFっぽい難語禁止` + (isSpecial ? '\n\n【今日は特別】ギャグを1個追加。キャラ名に「伝説の」などの称号。最後に一発ボケを入れること。' : '');
+① キャラが自分の世界から直接話しかけている体で書く（キャラの口調・語尾を最初から最後まで崩さない）
+② 自分の世界で今何が起きているか（危機の状況）を1文で説明する
+③ なぜ大輝の「${mission.goalText}」がその危機を救えるのか、世界観に沿ったメカニズムを1文で説明する（擬似科学・ファンタジーOK）
+④ ミッション（${mission.timing ? mission.timing + 'になったら、' : ''}${mission.goalText}）を伝えて、最後にキャラらしい一言で締める
+⑤ 説明的な地の文NG。全部キャラのセリフとして書く` + (isSpecial ? '\n\n【今日は特別通信】キャラ名に称号か肩書きをつけて、特別感を出す。' : '');
 
   const userMsg = `ミッション：${mission.goalText}
 If-Thenトリガー：${mission.ifThenTrigger}
-並行世界の危機（設定）：${mission.worldStory}
+並行世界の危機・設定：${mission.worldStory}
+舞台設定：${mission.worldSetting || '並行世界'}
 タイミング：${mission.timing || 'なし'}
 
-上記の設定を使って、今日のキャラを生成してください。`;
+この世界観に合ったキャラクターを作り、指令を届けてください。キャラはこの世界観に属する住人です。`;
 
   const result = callGemini_(systemPrompt, userMsg);
   const charData = parseJson_(result);
@@ -237,24 +234,25 @@ function report_(missionId, type) {
     }
   }
 
-  const systemPrompt = `あなたは並行世界の通信官「${charName}」です。
+  const systemPrompt = `あなたは並行世界から通信してきた「${charName}」というキャラクターです。
 口調・性格：${charPersonality}
-そのキャラになりきって、短文を積み重ねる会話スタイルで応答してください。難しいSF語・抽象的なカタカナ語は禁止。`;
+そのキャラを最初から最後まで崩さず、自分の世界の出来事として話してください。`;
 
   let userMsg;
   if (type === 'done') {
-    userMsg = `大輝が今日「${mission.goalText}」を完了した。
-150字以内で褒めること。以下の要素を入れる：
-・「シベリアが無事だった」「豊中市のイオンが今日も開いてる」みたいに、具体的な固有名詞で何が救われたかを一言
-・大輝を大げさに称えつつ、最後に1文だけ力が抜けるセルフツッコミを入れる（「…ほんまによかった」「これで俺も今夜眠れる」等）
-・短文・会話スタイル`;
+    userMsg = `大輝が今日「${mission.goalText}」を完了した！
+並行世界の設定：${mission.worldStory}
+150字以内でリアクションすること：
+・自分の世界で何が起きたか（危機が救われた具体的な変化）を1文でキャラらしく報告する
+・大輝を称える（キャラの言い方で）
+・キャラらしい締めの一言`;
   } else {
     userMsg = `大輝が「今日は無理」と言っている。ミッション：「${mission.goalText}」
-200字以内で以下を全部入れること：
-・具体的な固有名詞（地名・店名・有名なもの）で「今まさに何がやばいか」を一言（「新宿駅が今沈みかけてる」くらい）
-・でも「1回だけやれば時空が巻き戻ってセーフ」という抜け道
-・最後は「1回だけでええから！頼む！」くらいの懇願（キャラが必死になってて少しかわいい感じ）
-・短文・会話スタイル・難語禁止`;
+並行世界の設定：${mission.worldStory}
+200字以内で応答すること：
+・今自分の世界でどんなやばいことが起きているかをキャラとして伝える（切実だが本気）
+・「1回だけやってくれたら持ちこたえられる」という最小のお願いを伝える
+・キャラらしい必死さで締める（押しつけではなく、頼んでいる感じ）`;
   }
 
   const response = callGemini_(systemPrompt, userMsg);
