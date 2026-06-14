@@ -275,17 +275,8 @@
       <div class="add-form" id="addForm">
         <div class="field-label">▶ 継続したいこと</div>
         <input type="text" id="goalInput" placeholder="例：毎日スクワット20回" />
-        <div class="field-label">▶ If-Thenトリガーのタイミング</div>
-        <select id="timingSelect" onchange="onTimingChange()">
-          <option value="朝、ベッドから出たら">朝、ベッドから出たら</option>
-          <option value="歯を磨いたら">歯を磨いたら</option>
-          <option value="食事の前に">食事の前に</option>
-          <option value="お風呂が沸いたら">お風呂が沸いたら</option>
-          <option value="帰宅したら">帰宅したら</option>
-          <option value="寝る前に">寝る前に</option>
-          <option value="custom">カスタムで入力する…</option>
-        </select>
-        <input type="text" id="timingCustom" placeholder="タイミングを入力（例：コーヒーを飲んだら）" style="display:none" />
+        <div class="field-label">▶ 通知・実行時刻（毎日この時間にメール通知）</div>
+        <input type="time" id="notifyTime" value="21:00" />
         <button class="btn btn-primary" id="startBtn" onclick="startMission()">ミッション開始</button>
       </div>
 
@@ -331,16 +322,6 @@ function switchTab(name) {
   if (name === 'archive') syncArchiveSelect();
 }
 
-function onTimingChange() {
-  var sel = document.getElementById('timingSelect');
-  document.getElementById('timingCustom').style.display = sel.value === 'custom' ? 'block' : 'none';
-}
-
-function getTimingValue() {
-  var sel = document.getElementById('timingSelect');
-  if (sel.value === 'custom') return document.getElementById('timingCustom').value.trim();
-  return sel.value;
-}
 
 window.onload = function() {
   google.script.run
@@ -364,7 +345,7 @@ function renderMissions() {
   el.innerHTML = missions.map(function(m) {
     return '<div class="mission-card' + (m.id === selectedId ? ' selected' : '') + '" onclick="selectMission(\'' + m.id + '\')">'
       + '<div style="flex:1"><div class="goal">' + esc(m.goalText) + '</div>'
-      + '<div class="meta">' + (m.timing ? '⏰ ' + esc(m.timing) + '　' : '') + m.createdDate + '</div></div>'
+      + '<div class="meta">' + (m.notifyTime ? '🔔 ' + esc(m.notifyTime) + '　' : '') + m.createdDate + '</div></div>'
       + '<button class="del-btn" onclick="removeMission(event,\'' + m.id + '\')">×</button>'
       + '</div>';
   }).join('');
@@ -529,7 +510,7 @@ function triggerDoneAnimation() {
 
 function startMission() {
   var goal = document.getElementById('goalInput').value.trim();
-  var timing = getTimingValue();
+  var notifyTime = document.getElementById('notifyTime').value;
   if (!goal) { alert('継続したいことを入力してください'); return; }
   var btn = document.getElementById('startBtn');
   btn.disabled = true; btn.textContent = '生成中…';
@@ -546,7 +527,7 @@ function startMission() {
     .withFailureHandler(function(e) {
       showErr(e); btn.disabled = false; btn.textContent = 'ミッション開始';
     })
-    .createMission(goal, timing);
+    .createMission(goal, notifyTime);
 }
 
 function toggleAddForm() {

@@ -35,7 +35,7 @@ function parseJson_(text) {
 }
 
 // ============================================================
-// キャッシュヘルパー（Spreadsheet読み込みを5分間キャッシュ）
+// キャッシュヘルパー
 // ============================================================
 function cacheGet_(key) {
   try {
@@ -63,7 +63,8 @@ function getMissionsSheet_() {
   let sheet = ss.getSheetByName('missions');
   if (!sheet) {
     sheet = ss.insertSheet('missions');
-    sheet.appendRow(['id', 'goalText', 'ifThenTrigger', 'worldStory', 'createdDate', 'status', 'timing']);
+    // id, goalText, ifThenTrigger, worldStory, createdDate, status, timing, worldSetting, notifyTime
+    sheet.appendRow(['id', 'goalText', 'ifThenTrigger', 'worldStory', 'createdDate', 'status', 'timing', 'worldSetting', 'notifyTime']);
     sheet.setFrozenRows(1);
   }
   return sheet;
@@ -84,25 +85,115 @@ function today_() {
   return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
+// notifyTime "21:30" → "21時30分になったら"
+function timingFromNotifyTime_(notifyTime) {
+  if (!notifyTime) return '';
+  const parts = notifyTime.split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1] || '0', 10);
+  return m === 0 ? h + '時になったら' : h + '時' + m + '分になったら';
+}
+
 // ============================================================
-// ミッション作成（timing追加 + プロンプト改善）
+// 通知トリガー管理
 // ============================================================
-function createMission(goalText, timing) {
+function ensureNotifyTrigger_() {
+  const triggers = ScriptApp.getProjectTriggers();
+  for (let i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'checkAndNotify') return;
+  }
+  ScriptApp.newTrigger('checkAndNotify')
+    .timeBased()
+    .everyHours(1)
+    .create();
+}
+
+// 毎時実行：通知時刻に一致するミッションにメール送信
+function checkAndNotify() {
+  const tz = Session.getScriptTimeZone();
+  const now = new Date();
+  const currentHour = parseInt(Utilities.formatDate(now, tz, 'HH'), 10);
+  const todayStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+
+  const missionsSheet = getMissionsSheet_();
+  const missionsData = missionsSheet.getDataRange().getValues();
+  const logsSheet = getDailyLogsSheet_();
+  const logsData = logsSheet.getDataRange().getValues();
+
+  // 今日すでにログがあるミッションIDのセット
+  const loggedToday = new Set();
+  for (let i = 1; i < logsData.length; i++) {
+    if (String(logsData[i][2]) === todayStr && logsData[i][5] !== '') {
+      loggedToday.add(String(logsData[i][1]));
+    }
+  }
+
+  const props = PropertiesService.getScriptProperties();
+  const email = Session.getEffectiveUser().getEmail();
+
+  for (let i = 1; i < missionsData.length; i++) {
+    if (missionsData[i][5] !== 'active') continue;
+    const notifyTime = String(missionsData[i][8] || '');
+    if (!notifyTime) continue;
+
+    const notifyHour = parseInt(notifyTime.split(':')[0], 10);
+    if (notifyHour !== currentHour) continue;
+
+    const missionId = String(missionsData[i][0]);
+    if (loggedToday.has(missionId)) continue;
+
+    // 今日すでに通知済みならスキップ
+    const notifyKey = 'notify_' + missionId + '_' + todayStr;
+    if (props.getProperty(notifyKey)) continue;
+
+    const goalText = String(missionsData[i][1]);
+    const ifThenTrigger = String(missionsData[i][2]);
+
+    try {
+      MailApp.sendEmail({
+        to: email,
+        subject: '🌍 地球防衛OPS ｜ ミッション通知',
+        body: [
+          '大輝へ',
+          '',
+          '時間だ。ミッションを確認しろ。',
+          '',
+          '【ミッション】' + goalText,
+          '【If-Then】' + ifThenTrigger,
+          '',
+          'アプリを開いて今日のキャラクターの指令を受け取れ。',
+          '',
+          '─ 地球防衛オペレーション',
+        ].join('\n'),
+      });
+      props.setProperty(notifyKey, '1');
+    } catch(e) {
+      // メール送信失敗は無視（ログは残らないが処理を止めない）
+    }
+  }
+}
+
+// ============================================================
+// ミッション作成
+// ============================================================
+function createMission(goalText, notifyTime) {
+  const timing = timingFromNotifyTime_(notifyTime);
+
   const systemPrompt = `あなたは並行世界のミッション設計AIです。
 以下のJSON形式のみで応答してください。他の文章は不要です。
 
 {
-  "ifThenTrigger": "If-Thenトリガー（例：「お風呂が沸いたアラームが鳴ったら（If）、スクワットを20回やる（Then）」）",
+  "ifThenTrigger": "If-Thenトリガー（例：「21時になったら（If）、スクワットを20回やる（Then）」）",
   "worldStory": "なぜこの行動が並行世界を救うのかの説明（2〜3文）",
-  "worldSetting": "並行世界の舞台設定（例：「第七鉱区の鍛冶工房」「並行世界Ωのクラブシーン」「星間交易船の機関室」など、キャラが住む世界の具体的な場所・雰囲気）"
+  "worldSetting": "並行世界の舞台設定（例：「第七鉱区の鍛冶工房」「銀河系外縁の宇宙ステーション」「地下水路都市の発電所」）"
 }
 
 worldStoryのルール：
-① 行動（例：スクワット）→その行動が生み出す何らかのエネルギー・現象（擬似科学的でOK）→それが並行世界の危機をどう救うか、の流れで書く
-② 具体的な世界観を作ること：その世界独自の名称・設定・ルールを1つ入れる（「聖なる炉」「量子の重低音」「知識の火花」など）
-③ 日本の実在する有名な場所・もの・チームを最低1つ絡めること（富士山、甲子園、渋谷のスクランブル交差点、阪神タイガース、吉野家の牛丼など）。リアルな固有名詞が入ると臨場感と面白さが出る
-④ 抽象的なSF語禁止。平易な言葉で書く
-⑤ 全体で2〜3文。テンポよく`;
+① 行動（例：スクワット）→その行動が生み出すエネルギー・現象（擬似科学的でOK）→それが並行世界の危機をどう救うか、の流れで書く
+② その世界独自の名称・設定を1つ入れる（「聖なる炉」「量子の重低音」「記憶の結晶」など）
+③ 実在する場所・人・もの・チーム・ブランドを最低1つ入れること（例：エベレスト、スタバ、バルセロナ、NASA、阪神タイガース、富士山など世界中のなんでもOK）。知っているものが出ると臨場感が生まれる
+④ 平易な言葉で。抽象的なSF語禁止
+⑤ 全体で2〜3文`;
 
   const userMsg = '継続したいこと：' + goalText + (timing ? '\nタイミング：' + timing : '');
   const result = callGemini_(systemPrompt, userMsg);
@@ -111,14 +202,22 @@ worldStoryのルール：
   const sheet = getMissionsSheet_();
   const id = Utilities.getUuid();
   const now = today_();
-  sheet.appendRow([id, goalText, data.ifThenTrigger, data.worldStory, now, 'active', timing || '', data.worldSetting || '']);
-  cacheRemove_('missions'); // ミッション追加でキャッシュ無効化
+  sheet.appendRow([id, goalText, data.ifThenTrigger, data.worldStory, now, 'active', timing, data.worldSetting || '', notifyTime || '']);
+  cacheRemove_('missions');
 
-  return { id: id, goalText: goalText, ifThenTrigger: data.ifThenTrigger, worldStory: data.worldStory, createdDate: now, status: 'active', timing: timing || '', worldSetting: data.worldSetting || '' };
+  if (notifyTime) {
+    try { ensureNotifyTrigger_(); } catch(e) {}
+  }
+
+  return {
+    id: id, goalText: goalText, ifThenTrigger: data.ifThenTrigger,
+    worldStory: data.worldStory, createdDate: now, status: 'active',
+    timing: timing, worldSetting: data.worldSetting || '', notifyTime: notifyTime || ''
+  };
 }
 
 // ============================================================
-// ミッション一覧取得（キャッシュあり）
+// ミッション一覧取得
 // ============================================================
 function getMissions() {
   const cached = cacheGet_('missions');
@@ -129,7 +228,11 @@ function getMissions() {
   const missions = [];
   for (let i = 1; i < data.length; i++) {
     if (data[i][5] === 'active') {
-      missions.push({ id: data[i][0], goalText: data[i][1], ifThenTrigger: data[i][2], worldStory: data[i][3], createdDate: data[i][4], status: data[i][5], timing: data[i][6] || '', worldSetting: data[i][7] || '' });
+      missions.push({
+        id: data[i][0], goalText: data[i][1], ifThenTrigger: data[i][2],
+        worldStory: data[i][3], createdDate: data[i][4], status: data[i][5],
+        timing: data[i][6] || '', worldSetting: data[i][7] || '', notifyTime: data[i][8] || ''
+      });
     }
   }
   cachePut_('missions', missions);
@@ -143,7 +246,6 @@ function getTodayMission(missionId) {
   const todayStr = today_();
   const cacheKey = 'today_' + missionId + '_' + todayStr;
 
-  // 今日のログキャッシュを確認
   const cached = cacheGet_(cacheKey);
   if (cached) return cached;
 
@@ -152,7 +254,10 @@ function getTodayMission(missionId) {
 
   for (let i = 1; i < logsData.length; i++) {
     if (String(logsData[i][1]) === String(missionId) && String(logsData[i][2]) === todayStr) {
-      const result = { logId: logsData[i][0], characterName: logsData[i][3], characterPersonality: logsData[i][4], result: logsData[i][5], responseText: logsData[i][6] };
+      const result = {
+        logId: logsData[i][0], characterName: logsData[i][3],
+        characterPersonality: logsData[i][4], result: logsData[i][5], responseText: logsData[i][6]
+      };
       cachePut_(cacheKey, result);
       return result;
     }
@@ -163,13 +268,16 @@ function getTodayMission(missionId) {
   let mission = null;
   for (let i = 1; i < missionsData.length; i++) {
     if (String(missionsData[i][0]) === String(missionId)) {
-      mission = { goalText: missionsData[i][1], ifThenTrigger: missionsData[i][2], worldStory: missionsData[i][3], timing: missionsData[i][6] || '', worldSetting: missionsData[i][7] || '' };
+      mission = {
+        goalText: missionsData[i][1], ifThenTrigger: missionsData[i][2],
+        worldStory: missionsData[i][3], timing: missionsData[i][6] || '',
+        worldSetting: missionsData[i][7] || '', notifyTime: missionsData[i][8] || ''
+      };
       break;
     }
   }
   if (!mission) return null;
 
-  // 10回に1回は「特別通信官」フラグを立てる（間欠強化）
   const totalLogs = logsData.length - 1;
   const isSpecial = (totalLogs % 10 === 0);
 
@@ -177,18 +285,18 @@ function getTodayMission(missionId) {
 以下のJSON形式のみで応答してください。
 
 {
-  "characterName": "キャラの名前（例：「第七鉱区の鍛冶頭ガルドン」「並行世界Ωの元DJニャンコ」「星間交易船の機関士マリー」）",
-  "characterPersonality": "性格・口調（一文。例：「荒っぽい職人言葉で話す」「だにゃ語尾の元気なネコ系」「冷静だが内心あせっている」）",
+  "characterName": "キャラの名前（例：「第七鉱区の鍛冶頭ガルドン」「銀河DJニャンコ」「砂漠の交易商マリア」）",
+  "characterPersonality": "性格・口調（一文。例：「荒っぽい職人言葉」「だにゃ語尾の元気系」「冷静だが内心あせっている」）",
   "greeting": "大輝への指令セリフ（200字程度）"
 }
 
 greetingのルール：
-① キャラが自分の世界から直接話しかけている体で書く（キャラの口調・語尾を最初から最後まで崩さない）
+① キャラが自分の世界から直接話しかけている体で書く（口調・語尾を最初から最後まで崩さない）
 ② 自分の世界で今何が起きているか（危機の状況）を1文で説明する
-③ なぜ大輝の「${mission.goalText}」がその危機を救えるのか、世界観に沿ったメカニズムを1文で説明する（擬似科学・ファンタジーOK）
-④ 日本の実在する有名な場所・チーム・食べ物・施設を最低1つ使って臨場感を出すこと（例：「富士山が傾いてきてる」「阪神タイガースが全員眠ってしまった」「吉野家の牛丼が全国で消えかけてる」など）
-⑤ ミッション（${mission.timing ? mission.timing + 'になったら、' : ''}${mission.goalText}）を伝えて、最後にキャラらしい一言で締める
-⑥ 説明的な地の文NG。全部キャラのセリフとして書く` + (isSpecial ? '\n\n【今日は特別通信】キャラ名に称号か肩書きをつけて、特別感を出す。' : '');
+③ なぜ大輝の「${mission.goalText}」がその危機を救えるのか、世界観に沿ったメカニズムを1文で説明する
+④ 実在する場所・もの・チーム・ブランドを最低1つ使うこと（エベレスト、NASA、スタバ、阪神タイガース、富士山など世界中なんでもOK）。知っているものが出ると面白い
+⑤ ミッション（${mission.timing ? mission.timing + '、' : ''}${mission.goalText}）を伝えて、最後にキャラらしい一言で締める
+⑥ 全部キャラのセリフ。説明文NG` + (isSpecial ? '\n\n【今日は特別通信】キャラ名に称号か肩書きをつけて特別感を出す。' : '');
 
   const userMsg = `ミッション：${mission.goalText}
 If-Thenトリガー：${mission.ifThenTrigger}
@@ -196,7 +304,7 @@ If-Thenトリガー：${mission.ifThenTrigger}
 舞台設定：${mission.worldSetting || '並行世界'}
 タイミング：${mission.timing || 'なし'}
 
-この世界観に合ったキャラクターを作り、指令を届けてください。キャラはこの世界観に属する住人です。`;
+この世界観に合ったキャラクターを作り、指令を届けてください。`;
 
   const result = callGemini_(systemPrompt, userMsg);
   const charData = parseJson_(result);
@@ -204,7 +312,11 @@ If-Thenトリガー：${mission.ifThenTrigger}
   const logId = Utilities.getUuid();
   logsSheet.appendRow([logId, missionId, todayStr, charData.characterName, charData.characterPersonality, '', charData.greeting]);
 
-  const newEntry = { logId: logId, characterName: charData.characterName, characterPersonality: charData.characterPersonality, result: '', responseText: charData.greeting, isSpecial: isSpecial };
+  const newEntry = {
+    logId: logId, characterName: charData.characterName,
+    characterPersonality: charData.characterPersonality,
+    result: '', responseText: charData.greeting, isSpecial: isSpecial
+  };
   cachePut_('today_' + missionId + '_' + todayStr, newEntry);
   return newEntry;
 }
@@ -245,16 +357,16 @@ function report_(missionId, type) {
     userMsg = `大輝が今日「${mission.goalText}」を完了した！
 並行世界の設定：${mission.worldStory}
 150字以内でリアクションすること：
-・自分の世界で何が救われたか、実在する有名な場所・もの（富士山、甲子園、吉野家の牛丼など）を1つ使って具体的に伝える
+・自分の世界で何が救われたか、実在する場所・もの（エベレスト、スタバ、阪神タイガース、富士山など世界中なんでもOK）を1つ使って具体的に伝える
 ・大輝を称える（キャラの言い方で）
 ・キャラらしい締めの一言`;
   } else {
     userMsg = `大輝が「今日は無理」と言っている。ミッション：「${mission.goalText}」
 並行世界の設定：${mission.worldStory}
 200字以内で応答すること：
-・今自分の世界で何がやばいか、実在する有名な場所・もの（富士山、甲子園、吉野家など）を1つ使って具体的に伝える
+・今自分の世界で何がやばいか、実在する場所・もの（エベレスト、スタバ、阪神タイガース、富士山など世界中なんでもOK）を1つ使って具体的に伝える
 ・「1回だけやってくれたら持ちこたえられる」という最小のお願いを伝える
-・キャラらしい必死さで締める（頼んでいる感じ）`;
+・キャラらしい必死さで締める`;
   }
 
   const response = callGemini_(systemPrompt, userMsg);
@@ -264,17 +376,16 @@ function report_(missionId, type) {
     logsSheet.getRange(rowIndex, 7).setValue(response);
   }
 
-  // キャッシュ更新（result と responseText を反映）
   const cacheKey = 'today_' + missionId + '_' + todayStr;
   const cached = cacheGet_(cacheKey);
   if (cached) { cached.result = type; cached.responseText = response; cachePut_(cacheKey, cached); }
-  cacheRemove_('stats_' + missionId); // 統計キャッシュも無効化
+  cacheRemove_('stats_' + missionId);
 
   return { response: response };
 }
 
 // ============================================================
-// 統計・ストリーク・カレンダーデータ取得（キャッシュあり）
+// 統計・ストリーク・カレンダーデータ取得
 // ============================================================
 function getStats(missionId) {
   const statsCacheKey = 'stats_' + missionId;
@@ -293,7 +404,6 @@ function getStats(missionId) {
     }
   }
 
-  // dailyLogsから対象ミッションのログを抽出（日付→resultマップ）
   const logMap = {};
   for (let i = 1; i < logsData.length; i++) {
     if (String(logsData[i][1]) === String(missionId)) {
@@ -301,7 +411,6 @@ function getStats(missionId) {
     }
   }
 
-  // 今日から過去60日分のカレンダーデータ
   const calendarData = {};
   const tz = Session.getScriptTimeZone();
   for (let d = 0; d < 60; d++) {
@@ -311,7 +420,6 @@ function getStats(missionId) {
     calendarData[key] = logMap[key] || '';
   }
 
-  // ストリーク計算（今日から遡って done が連続した日数）
   let currentStreak = 0;
   let checking = true;
   for (let d = 0; d < 365; d++) {
@@ -319,35 +427,33 @@ function getStats(missionId) {
     dt.setDate(dt.getDate() - d);
     const key = Utilities.formatDate(dt, tz, 'yyyy-MM-dd');
     const result = logMap[key];
-    if (d === 0 && result !== 'done') { checking = false; break; } // 今日未完了
+    if (d === 0 && result !== 'done') { checking = false; break; }
     if (result === 'done') { if (checking) currentStreak++; }
     else if (result === 'skip') { checking = false; }
-    // 未報告の日はスキップして遡る（抜けた日は途切れとみなさない）
   }
 
-  // ベストストリーク計算
   const sortedDates = Object.keys(logMap).filter(function(k){ return logMap[k] === 'done'; }).sort();
   let bestStreak = 0, tempStreak = 0, prevDate = null;
   sortedDates.forEach(function(d) {
     if (prevDate) {
-      const prev = new Date(prevDate), cur = new Date(d);
-      const diff = (cur - prev) / 86400000;
+      const diff = (new Date(d) - new Date(prevDate)) / 86400000;
       tempStreak = (diff === 1) ? tempStreak + 1 : 1;
     } else { tempStreak = 1; }
     if (tempStreak > bestStreak) bestStreak = tempStreak;
     prevDate = d;
   });
 
-  // 累計完了数
   const totalDone = Object.values(logMap).filter(function(v){ return v === 'done'; }).length;
-
-  // 開始からの日数
   let totalDays = 0;
   if (createdDate) {
     totalDays = Math.floor((new Date() - new Date(createdDate)) / 86400000) + 1;
   }
 
-  const stats = { currentStreak: currentStreak, bestStreak: bestStreak, totalDone: totalDone, totalDays: totalDays, calendarData: calendarData, createdDate: String(createdDate) };
+  const stats = {
+    currentStreak: currentStreak, bestStreak: bestStreak,
+    totalDone: totalDone, totalDays: totalDays,
+    calendarData: calendarData, createdDate: String(createdDate)
+  };
   cachePut_(statsCacheKey, stats);
   return stats;
 }
