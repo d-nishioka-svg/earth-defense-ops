@@ -5,141 +5,256 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>地球防衛OPS</title>
   <style>
     :root {
-      --bg:    #0A0E1A; --bg2: #0D1426; --bg3: #111830;
-      --cyan:  #00D4FF; --cyan-dim: rgba(0,212,255,0.18);
-      --blue:  #0055BB; --blue2: #003F99;
-      --text:  #E0F0FF; --dim: #6688AA;
-      --done:  #00FF88; --skip: #FF6644;
-      --gold:  #FFD700; --border: #1A3055;
-      --safe:  44px;
+      --bg:     #F3F7FF;
+      --bg2:    #FFFFFF;
+      --bg3:    #E8EEFF;
+      --accent: #1A5CCC;
+      --accent2:#0A3D99;
+      --cyan:   #0088BB;
+      --cyan-dim: rgba(0,136,187,0.12);
+      --text:   #0D1A35;
+      --dim:    #6677AA;
+      --done:   #1A9965;
+      --done-bg: #E6F7F0;
+      --skip:   #CC4422;
+      --skip-bg: #FFF0EB;
+      --gold:   #BB8800;
+      --border: #CDD8EE;
+      --shadow: 0 2px 12px rgba(26,92,204,0.09);
+      --safe:   48px;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Hiragino Kaku Gothic ProN','Noto Sans JP','Courier New',monospace; font-size: 15px; overscroll-behavior: none; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;
+      font-size: 16px;
+      overscroll-behavior: none;
+      -webkit-font-smoothing: antialiased;
+    }
 
     /* ======= レイアウト ======= */
     .app { display: flex; flex-direction: column; height: 100dvh; }
-    header { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 14px 16px 12px; background: linear-gradient(180deg, #081020 0%, var(--bg) 100%); border-bottom: 1px solid var(--border); }
-    .logo { font-size: 17px; font-weight: bold; color: var(--cyan); letter-spacing: 1px; }
-    .logo-sub { font-size: 9px; color: var(--dim); letter-spacing: 3px; margin-top: 1px; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--done); margin-left: auto; animation: blink 2s infinite; }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    header {
+      flex-shrink: 0;
+      display: flex; align-items: center; gap: 10px;
+      padding: 16px 18px 14px;
+      padding-top: max(16px, env(safe-area-inset-top));
+      background: var(--accent);
+      color: #fff;
+    }
+    .logo { font-size: 17px; font-weight: 700; letter-spacing: 1px; }
+    .logo-sub { font-size: 10px; opacity: .7; letter-spacing: 2px; margin-top: 2px; }
+    .dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: #5DFFA0; margin-left: auto; flex-shrink: 0;
+      animation: blink 2s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
     .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .pad { padding: 16px; }
-    nav { flex-shrink: 0; display: flex; border-top: 1px solid var(--border); background: var(--bg2); }
-    .nav-btn { flex: 1; min-height: var(--safe); background: none; border: none; color: var(--dim); font-family: inherit; font-size: 11px; letter-spacing: 1px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 0; }
-    .nav-btn .icon { font-size: 20px; line-height: 1; }
-    .nav-btn.active { color: var(--cyan); }
+    nav {
+      flex-shrink: 0;
+      display: flex;
+      border-top: 1px solid var(--border);
+      background: var(--bg2);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .nav-btn {
+      flex: 1; min-height: var(--safe); background: none; border: none;
+      color: var(--dim); font-family: inherit; font-size: 12px;
+      cursor: pointer; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 3px; padding: 8px 0;
+    }
+    .nav-btn .icon { font-size: 22px; line-height: 1; }
+    .nav-btn.active { color: var(--accent); font-weight: 600; }
 
     /* ======= タブ ======= */
     .tab { display: none; }
     .tab.active { display: block; }
 
     /* ======= 共通部品 ======= */
-    .section-label { font-size: 10px; letter-spacing: 3px; color: var(--dim); margin-bottom: 10px; }
-    .btn { min-height: var(--safe); width: 100%; border: none; border-radius: 10px; font-family: inherit; font-size: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity .15s, transform .1s; -webkit-appearance: none; }
+    .section-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 2px;
+      color: var(--dim); margin-bottom: 10px; text-transform: uppercase;
+    }
+    .btn {
+      min-height: var(--safe); width: 100%; border: none; border-radius: 12px;
+      font-family: inherit; font-size: 16px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      gap: 8px; transition: opacity .15s, transform .1s; -webkit-appearance: none;
+    }
     .btn:active { transform: scale(0.97); opacity: .85; }
-    .btn:disabled { opacity: .35; pointer-events: none; }
-    .btn-primary { background: linear-gradient(135deg, var(--blue), var(--blue2)); color: var(--text); border: 1px solid var(--cyan-dim); }
-    .btn-done { background: linear-gradient(135deg, rgba(0,255,136,.15), rgba(0,255,136,.08)); color: var(--done); border: 1px solid rgba(0,255,136,.4); }
-    .btn-skip { background: linear-gradient(135deg, rgba(255,102,68,.15), rgba(255,102,68,.08)); color: var(--skip); border: 1px solid rgba(255,102,68,.4); }
-    .btn-min { background: linear-gradient(135deg, rgba(255,215,0,.15), rgba(255,215,0,.05)); color: var(--gold); border: 1px solid rgba(255,215,0,.4); font-size: 14px; margin-top: 8px; }
-    input[type="text"], select, textarea { width: 100%; min-height: var(--safe); background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text); padding: 0 14px; font-family: inherit; font-size: 15px; outline: none; -webkit-appearance: none; margin-bottom: 10px; }
-    input[type="text"]:focus, select:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan-dim); }
-    input::placeholder { color: var(--dim); }
+    .btn:disabled { opacity: .38; pointer-events: none; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-done { background: var(--done-bg); color: var(--done); border: 1.5px solid rgba(26,153,101,.35); }
+    .btn-skip { background: var(--skip-bg); color: var(--skip); border: 1.5px solid rgba(204,68,34,.3); }
+    .btn-min { background: #FFF8E0; color: var(--gold); border: 1.5px solid rgba(187,136,0,.35); font-size: 15px; margin-top: 8px; }
+    input[type="text"], select, textarea {
+      width: 100%; min-height: var(--safe);
+      background: var(--bg2); border: 1.5px solid var(--border);
+      border-radius: 12px; color: var(--text);
+      padding: 0 14px; font-family: inherit; font-size: 16px;
+      outline: none; -webkit-appearance: none; margin-bottom: 10px;
+    }
+    input[type="text"]:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--cyan-dim);
+    }
+    input::placeholder { color: var(--dim); opacity: .7; }
 
     /* ======= ミッション追加フォーム ======= */
-    .add-toggle { width: 100%; min-height: var(--safe); background: var(--bg3); border: 1px dashed var(--border); border-radius: 12px; color: var(--cyan); font-family: inherit; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 8px; -webkit-appearance: none; }
-    .add-form { display: none; background: var(--bg3); border: 1px solid var(--cyan-dim); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+    .add-toggle {
+      width: 100%; min-height: var(--safe);
+      background: var(--bg2); border: 1.5px dashed var(--border);
+      border-radius: 14px; color: var(--accent); font-family: inherit;
+      font-size: 16px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; margin-bottom: 10px; -webkit-appearance: none;
+    }
+    .add-form {
+      display: none; background: var(--bg2);
+      border: 1.5px solid var(--cyan-dim);
+      border-radius: 14px; padding: 16px; margin-bottom: 14px;
+      box-shadow: var(--shadow);
+    }
     .add-form.open { display: block; }
-    .field-label { font-size: 11px; color: var(--dim); letter-spacing: 1px; margin-bottom: 6px; }
+    .field-label { font-size: 12px; font-weight: 600; color: var(--dim); margin-bottom: 6px; }
 
     /* ======= ミッションカード ======= */
-    .mission-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 14px; cursor: pointer; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; transition: border-color .2s; }
-    .mission-card:active { background: #0D1E35; }
-    .mission-card.selected { border-color: var(--cyan); background: #0D1E35; }
-    .mission-card .goal { flex: 1; font-size: 15px; line-height: 1.4; }
-    .mission-card .meta { font-size: 11px; color: var(--dim); margin-top: 2px; }
-    .del-btn { background: none; border: none; color: var(--dim); font-size: 20px; padding: 6px; cursor: pointer; min-width: var(--safe); min-height: var(--safe); display: flex; align-items: center; justify-content: center; }
+    .mission-card {
+      background: var(--bg2); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 14px 12px 14px 16px;
+      cursor: pointer; display: flex; align-items: center;
+      gap: 10px; margin-bottom: 10px;
+      box-shadow: var(--shadow); transition: border-color .2s;
+    }
+    .mission-card:active { background: var(--bg3); }
+    .mission-card.selected { border-color: var(--accent); background: #EDF4FF; }
+    .mission-card .goal { flex: 1; font-size: 16px; font-weight: 500; line-height: 1.45; }
+    .mission-card .meta { font-size: 12px; color: var(--dim); margin-top: 3px; }
+    .del-btn {
+      background: none; border: none; color: var(--dim); font-size: 22px;
+      padding: 6px; cursor: pointer;
+      min-width: var(--safe); min-height: var(--safe);
+      display: flex; align-items: center; justify-content: center;
+    }
 
     /* ======= ストリークバー ======= */
-    .streak-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
-    .streak-row { display: flex; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
-    .streak-item { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 70px; }
-    .streak-num { font-size: 26px; font-weight: bold; color: var(--cyan); line-height: 1; }
+    .streak-panel {
+      background: var(--bg2); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 16px; margin-bottom: 12px;
+      box-shadow: var(--shadow);
+    }
+    .streak-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .streak-item {
+      display: flex; flex-direction: column; align-items: center;
+      flex: 1; background: var(--bg3); border-radius: 10px; padding: 10px 4px;
+    }
+    .streak-num { font-size: 26px; font-weight: 700; color: var(--accent); line-height: 1; }
     .streak-num.fire { color: var(--gold); }
-    .streak-label { font-size: 10px; color: var(--dim); letter-spacing: 1px; margin-top: 2px; }
-    .progress-wrap { display: flex; flex-direction: column; gap: 4px; }
-    .progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); }
-    .progress-track { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
-    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--blue), var(--cyan)); border-radius: 3px; transition: width .6s ease; }
-    .milestone { font-size: 11px; color: var(--gold); text-align: center; margin-top: 4px; }
+    .streak-label { font-size: 11px; color: var(--dim); margin-top: 3px; }
+    .progress-wrap { display: flex; flex-direction: column; gap: 5px; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); }
+    .progress-track { height: 7px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--cyan)); border-radius: 4px; transition: width .6s ease; }
+    .milestone { font-size: 13px; color: var(--gold); font-weight: 600; text-align: center; margin-top: 6px; }
+
+    /* ======= If-Thenボックス ======= */
+    .if-then-box {
+      background: var(--bg2); border-left: 4px solid var(--accent);
+      border-radius: 0 12px 12px 0; padding: 12px 14px;
+      font-size: 14px; line-height: 1.8; color: var(--dim);
+      margin-bottom: 12px; box-shadow: var(--shadow);
+    }
+    .if-then-box b { color: var(--accent); }
 
     /* ======= 司令室 ======= */
-    .if-then-box { background: var(--bg); border-left: 3px solid var(--cyan); border-radius: 0 8px 8px 0; padding: 10px 12px; font-size: 13px; line-height: 1.7; color: var(--dim); margin-bottom: 12px; }
-    .if-then-box b { color: var(--cyan); }
-    .command-room { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; min-height: 100px; }
-    .command-room.special { border-color: var(--gold); }
+    .command-room {
+      background: var(--bg2); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 18px; margin-bottom: 12px;
+      min-height: 100px; box-shadow: var(--shadow);
+    }
+    .command-room.special { border-color: var(--gold); background: #FFFCE8; }
     .char-header { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-    .char-name { background: rgba(0,85,187,.4); border: 1px solid var(--cyan); border-radius: 6px; padding: 4px 10px; font-size: 13px; color: var(--cyan); }
-    .char-name.special { border-color: var(--gold); color: var(--gold); background: rgba(255,215,0,.1); }
-    .char-personality { font-size: 11px; color: var(--dim); line-height: 1.4; flex-basis: 100%; }
-    .char-msg { font-size: 14px; line-height: 1.9; white-space: pre-wrap; }
+    .char-name {
+      background: var(--bg3); border: 1.5px solid var(--accent);
+      border-radius: 20px; padding: 5px 14px; font-size: 14px;
+      font-weight: 600; color: var(--accent);
+    }
+    .char-name.special { border-color: var(--gold); color: var(--gold); background: #FFF8E0; }
+    .char-personality { font-size: 12px; color: var(--dim); line-height: 1.5; flex-basis: 100%; margin-top: 2px; }
+    .char-msg { font-size: 16px; line-height: 2; white-space: pre-wrap; color: var(--text); }
     .report-row { display: flex; gap: 10px; }
-    .report-row .btn { flex: 1; font-size: 14px; }
-    .badge { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 20px; }
-    .badge-done { background: rgba(0,255,136,.12); color: var(--done); border: 1px solid rgba(0,255,136,.3); }
-    .badge-skip { background: rgba(255,102,68,.12); color: var(--skip); border: 1px solid rgba(255,102,68,.3); }
+    .report-row .btn { flex: 1; font-size: 15px; }
+    .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 20px; }
+    .badge-done { background: var(--done-bg); color: var(--done); }
+    .badge-skip { background: var(--skip-bg); color: var(--skip); }
+    .badge-wait { background: var(--bg3); color: var(--dim); }
 
     /* ======= 達成アニメーション ======= */
-    .flash-overlay { position: fixed; inset: 0; background: var(--cyan); opacity: 0; pointer-events: none; z-index: 100; transition: opacity .1s; }
-    .flash-overlay.show { opacity: .15; }
+    .flash-overlay {
+      position: fixed; inset: 0; background: var(--accent);
+      opacity: 0; pointer-events: none; z-index: 100; transition: opacity .1s;
+    }
+    .flash-overlay.show { opacity: .12; }
     .stars-container { position: fixed; inset: 0; pointer-events: none; z-index: 101; overflow: hidden; }
-    .star { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); animation: fall 1.2s ease-out forwards; }
+    .star {
+      position: absolute; width: 8px; height: 8px; border-radius: 50%;
+      animation: fall 1.2s ease-out forwards;
+    }
     @keyframes fall {
       0%   { transform: translateY(-20px) scale(1); opacity: 1; }
       100% { transform: translateY(100vh) scale(0); opacity: 0; }
     }
 
-    /* ======= カレンダー（戦績タブ） ======= */
+    /* ======= カレンダー ======= */
     .calendar-wrap { margin-bottom: 20px; }
-    .cal-month-label { font-size: 12px; color: var(--cyan); letter-spacing: 2px; margin-bottom: 8px; }
+    .cal-month-label { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: 1px; margin-bottom: 8px; }
     .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-    .cal-day-label { font-size: 9px; color: var(--dim); text-align: center; padding: 2px 0; }
-    .cal-cell { aspect-ratio: 1; border-radius: 3px; background: var(--bg3); border: 1px solid var(--border); }
+    .cal-day-label { font-size: 10px; color: var(--dim); text-align: center; padding: 3px 0; font-weight: 600; }
+    .cal-cell { aspect-ratio: 1; border-radius: 4px; background: var(--bg3); border: 1px solid var(--border); }
     .cal-cell.done { background: var(--done); border-color: var(--done); }
-    .cal-cell.skip { background: var(--skip); border-color: var(--skip); opacity: .6; }
-    .cal-cell.today { border-color: var(--cyan); }
-    .cal-cell.future { opacity: .2; }
-    .cal-legend { display: flex; gap: 12px; margin-top: 8px; }
-    .cal-legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--dim); }
-    .cal-legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+    .cal-cell.skip { background: var(--skip); border-color: var(--skip); opacity: .5; }
+    .cal-cell.today { border: 2px solid var(--accent); }
+    .cal-cell.future { opacity: .25; }
+    .cal-legend { display: flex; gap: 14px; margin-top: 10px; }
+    .cal-legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--dim); }
+    .cal-legend-dot { width: 11px; height: 11px; border-radius: 3px; }
 
     /* ======= ローディング ======= */
-    .loading-row { display: flex; align-items: center; gap: 8px; color: var(--cyan); font-size: 13px; padding: 8px 0; }
-    .spin { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--cyan); border-radius: 50%; animation: spin .8s linear infinite; }
+    .loading-row { display: flex; align-items: center; gap: 10px; color: var(--accent); font-size: 14px; padding: 10px 0; }
+    .spin { width: 20px; height: 20px; border: 2.5px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; flex-shrink: 0; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ======= アーカイブ ======= */
-    .arc-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+    .arc-card {
+      background: var(--bg2); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 16px; margin-bottom: 10px;
+      box-shadow: var(--shadow);
+    }
     .arc-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-    .arc-date { font-size: 12px; color: var(--dim); }
-    .arc-char { font-size: 12px; color: var(--cyan); }
-    .arc-msg { font-size: 13px; color: var(--dim); line-height: 1.7; white-space: pre-wrap; }
-    .badge-wait { background: rgba(120,153,187,.12); color: var(--dim); border: 1px solid rgba(120,153,187,.2); }
+    .arc-date { font-size: 13px; font-weight: 600; color: var(--dim); }
+    .arc-char { font-size: 13px; color: var(--accent); }
+    .arc-msg { font-size: 14px; color: #445; line-height: 1.75; white-space: pre-wrap; }
 
-    .empty { text-align: center; color: var(--dim); font-size: 13px; padding: 30px 16px; line-height: 1.8; }
+    .empty { text-align: center; color: var(--dim); font-size: 14px; padding: 36px 16px; line-height: 1.9; }
     .section-gap { height: 20px; }
-    .err { background: rgba(255,102,68,.1); border: 1px solid rgba(255,102,68,.3); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--skip); margin-top: 8px; }
+    .err {
+      background: var(--skip-bg); border: 1.5px solid rgba(204,68,34,.25);
+      border-radius: 10px; padding: 12px 16px; font-size: 14px;
+      color: var(--skip); margin-top: 8px;
+    }
   </style>
 </head>
 <body>
 <div class="app">
 
-  <!-- フラッシュオーバーレイ -->
   <div class="flash-overlay" id="flashOverlay"></div>
   <div class="stars-container" id="starsContainer"></div>
 
@@ -174,29 +289,29 @@
         <button class="btn btn-primary" id="startBtn" onclick="startMission()">ミッション開始</button>
       </div>
 
-      <div class="section-label">▶ アクティブミッション</div>
+      <div class="section-label">アクティブミッション</div>
       <div id="missionList">
         <div class="loading-row"><div class="spin"></div>読み込み中…</div>
       </div>
 
       <div class="section-gap"></div>
       <div id="commandArea">
-        <div class="empty">↑ ミッションを選択して<br>今日の通信官を呼び出せ</div>
+        <div class="empty">↑ ミッションを選択して<br>今日の通信官を呼び出す</div>
       </div>
     </div>
 
     <!-- ===== 戦績タブ ===== -->
     <div id="tab-archive" class="tab pad">
-      <div class="section-label">▶ ミッション選択</div>
+      <div class="section-label">ミッション選択</div>
       <select id="archiveSelect" onchange="loadArchiveAndCal()" style="margin-bottom:16px">
         <option value="">-- ミッションを選択 --</option>
       </select>
       <div id="calendarArea"></div>
-      <div class="section-label" style="margin-top:8px">▶ 通信ログ</div>
+      <div class="section-label" style="margin-top:8px">通信ログ</div>
       <div id="archiveList"><div class="empty">ミッションを選択してください</div></div>
     </div>
 
-  </div><!-- /scroll -->
+  </div>
 
   <nav>
     <button class="nav-btn active" id="nav-base" onclick="switchTab('base')"><span class="icon">⚡</span>作戦本部</button>
@@ -208,9 +323,6 @@
 var missions = [];
 var selectedId = localStorage.getItem('selectedMissionId') || null;
 
-// ============================================================
-// タブ切り替え
-// ============================================================
 function switchTab(name) {
   ['base','archive'].forEach(function(n) {
     document.getElementById('tab-' + n).classList.toggle('active', n === name);
@@ -219,13 +331,9 @@ function switchTab(name) {
   if (name === 'archive') syncArchiveSelect();
 }
 
-// ============================================================
-// タイミング選択
-// ============================================================
 function onTimingChange() {
   var sel = document.getElementById('timingSelect');
-  var custom = document.getElementById('timingCustom');
-  custom.style.display = sel.value === 'custom' ? 'block' : 'none';
+  document.getElementById('timingCustom').style.display = sel.value === 'custom' ? 'block' : 'none';
 }
 
 function getTimingValue() {
@@ -234,9 +342,6 @@ function getTimingValue() {
   return sel.value;
 }
 
-// ============================================================
-// 初期化
-// ============================================================
 window.onload = function() {
   google.script.run
     .withSuccessHandler(function(list) {
@@ -250,9 +355,6 @@ window.onload = function() {
     .getMissions();
 };
 
-// ============================================================
-// ミッション一覧描画
-// ============================================================
 function renderMissions() {
   var el = document.getElementById('missionList');
   if (!missions.length) {
@@ -261,8 +363,8 @@ function renderMissions() {
   }
   el.innerHTML = missions.map(function(m) {
     return '<div class="mission-card' + (m.id === selectedId ? ' selected' : '') + '" onclick="selectMission(\'' + m.id + '\')">'
-      + '<div><div class="goal">' + esc(m.goalText) + '</div>'
-      + '<div class="meta">' + (m.timing ? '⏰ ' + esc(m.timing) + ' ・ ' : '') + m.createdDate + '</div></div>'
+      + '<div style="flex:1"><div class="goal">' + esc(m.goalText) + '</div>'
+      + '<div class="meta">' + (m.timing ? '⏰ ' + esc(m.timing) + '　' : '') + m.createdDate + '</div></div>'
       + '<button class="del-btn" onclick="removeMission(event,\'' + m.id + '\')">×</button>'
       + '</div>';
   }).join('');
@@ -279,9 +381,6 @@ function selectMission(id) {
   }, 100);
 }
 
-// ============================================================
-// 今日のキャラ読み込み
-// ============================================================
 function loadTodayMission(id) {
   var mission = missions.find(function(m){ return m.id === id; });
   var area = document.getElementById('commandArea');
@@ -302,9 +401,6 @@ function buildIfThenBox(mission) {
     + '<b>使命：</b>' + esc(mission.worldStory) + '</div>';
 }
 
-// ============================================================
-// ストリーク・司令室描画
-// ============================================================
 function renderCommandRoom(data, id) {
   var mission = missions.find(function(m){ return m.id === id; });
   var area = document.getElementById('commandArea');
@@ -322,7 +418,6 @@ function renderCommandRoom(data, id) {
     + '<button class="btn btn-skip" id="skipBtn" onclick="report(\'skip\',\'' + id + '\')"' + btnsDisabled + '>⚡ エネルギー不足…</button>'
     + '</div>';
 
-  // タイムリープ後の「1回だけ」ボタン
   var minBtn = (data.result === 'skip')
     ? '<button class="btn btn-min" id="minBtn" onclick="reportMin(\'' + id + '\')">⚡ 1回だけやってみる（タイムリープ完遂）</button>'
     : '';
@@ -340,7 +435,6 @@ function renderCommandRoom(data, id) {
     + btnsHtml + minBtn
     + '<div id="reportStatus"></div>';
 
-  // ストリーク非同期取得
   google.script.run
     .withSuccessHandler(function(stats) { renderStreak(stats); })
     .withFailureHandler(function() { document.getElementById('streakPanel').style.display = 'none'; })
@@ -366,9 +460,6 @@ function renderStreak(stats) {
     + (milestone ? '<div class="milestone">' + milestone + '</div>' : '');
 }
 
-// ============================================================
-// 報告
-// ============================================================
 function report(type, id) {
   var doneBtn = document.getElementById('doneBtn');
   var skipBtn = document.getElementById('skipBtn');
@@ -388,17 +479,13 @@ function report(type, id) {
 
       if (type === 'done') {
         triggerDoneAnimation();
-        // タイムリープ後のminBtnを非表示
         var minBtn = document.getElementById('minBtn');
         if (minBtn) minBtn.style.display = 'none';
       } else {
-        // skip後にminBtnを追加
         if (!document.getElementById('minBtn')) {
           statusEl.insertAdjacentHTML('beforebegin', '<button class="btn btn-min" id="minBtn" onclick="reportMin(\'' + id + '\')">⚡ 1回だけやってみる（タイムリープ完遂）</button>');
         }
       }
-
-      // ストリーク再更新
       google.script.run.withSuccessHandler(renderStreak).getStats(id);
     })
     .withFailureHandler(function(e) {
@@ -408,7 +495,6 @@ function report(type, id) {
     [type === 'done' ? 'reportDone' : 'reportSkip'](id);
 }
 
-// タイムリープ完遂（1回だけ）
 function reportMin(id) {
   var btn = document.getElementById('minBtn');
   if (btn) { btn.disabled = true; btn.textContent = '記録中…'; }
@@ -423,9 +509,6 @@ function reportMin(id) {
     .reportDone(id);
 }
 
-// ============================================================
-// 達成アニメーション（フラッシュ + 流れ星）
-// ============================================================
 function triggerDoneAnimation() {
   var overlay = document.getElementById('flashOverlay');
   overlay.classList.add('show');
@@ -433,20 +516,17 @@ function triggerDoneAnimation() {
 
   var container = document.getElementById('starsContainer');
   container.innerHTML = '';
-  for (var i = 0; i < 10; i++) {
+  for (var i = 0; i < 12; i++) {
     var star = document.createElement('div');
     star.className = 'star';
-    star.style.left = (10 + i * 9) + 'vw';
+    star.style.left = (5 + i * 8) + 'vw';
     star.style.animationDelay = (i * 0.06) + 's';
-    star.style.background = i % 2 === 0 ? '#FFD700' : '#00D4FF';
+    star.style.background = i % 3 === 0 ? '#FFD700' : i % 3 === 1 ? '#1A5CCC' : '#5DFFA0';
     container.appendChild(star);
   }
   setTimeout(function() { container.innerHTML = ''; }, 1400);
 }
 
-// ============================================================
-// 新規ミッション開始
-// ============================================================
 function startMission() {
   var goal = document.getElementById('goalInput').value.trim();
   var timing = getTimingValue();
@@ -475,9 +555,6 @@ function toggleAddForm() {
   if (f.classList.contains('open')) document.getElementById('goalInput').focus();
 }
 
-// ============================================================
-// ミッション削除
-// ============================================================
 function removeMission(event, id) {
   event.stopPropagation();
   if (!confirm('このミッションを終了しますか？')) return;
@@ -486,7 +563,7 @@ function removeMission(event, id) {
       missions = missions.filter(function(m){ return m.id !== id; });
       if (selectedId === id) {
         selectedId = null; localStorage.removeItem('selectedMissionId');
-        document.getElementById('commandArea').innerHTML = '<div class="empty">↑ ミッションを選択して<br>今日の通信官を呼び出せ</div>';
+        document.getElementById('commandArea').innerHTML = '<div class="empty">↑ ミッションを選択して<br>今日の通信官を呼び出す</div>';
       }
       renderMissions(); syncArchiveSelect();
     })
@@ -494,9 +571,6 @@ function removeMission(event, id) {
     .deleteMission(id);
 }
 
-// ============================================================
-// 戦績 + カレンダー
-// ============================================================
 function syncArchiveSelect() {
   var sel = document.getElementById('archiveSelect');
   sel.innerHTML = '<option value="">-- ミッションを選択 --</option>';
@@ -535,19 +609,20 @@ function renderCalendar(stats) {
   var today = new Date();
   var todayStr = formatDate(today);
 
-  // 今月と先月の2ヶ月分
-  var html = '<div class="section-label">▶ 継続カレンダー</div>';
-  html += '<div class="cal-legend"><div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--done)"></div>完了</div><div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--skip);opacity:.6"></div>サボり</div><div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--bg3);border:1px solid var(--border)"></div>未報告</div></div>';
-  html += '<div style="height:12px"></div>';
+  var html = '<div class="section-label">継続カレンダー</div>';
+  html += '<div class="cal-legend">'
+    + '<div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--done)"></div>完了</div>'
+    + '<div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--skip);opacity:.5"></div>サボり</div>'
+    + '<div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--bg3);border:1px solid var(--border)"></div>未報告</div>'
+    + '</div><div style="height:14px"></div>';
 
   for (var m = 1; m >= 0; m--) {
     var d = new Date(today.getFullYear(), today.getMonth() - m, 1);
     var year = d.getFullYear(), month = d.getMonth();
-    var monthLabel = year + '年' + (month + 1) + '月';
     var firstDay = new Date(year, month, 1).getDay();
     var lastDay = new Date(year, month + 1, 0).getDate();
 
-    html += '<div class="calendar-wrap"><div class="cal-month-label">' + monthLabel + '</div>';
+    html += '<div class="calendar-wrap"><div class="cal-month-label">' + year + '年' + (month + 1) + '月</div>';
     html += '<div class="cal-grid">';
     ['日','月','火','水','木','金','土'].forEach(function(l) { html += '<div class="cal-day-label">' + l + '</div>'; });
 
@@ -584,18 +659,13 @@ function renderArchiveList(logs) {
   }).join('');
 }
 
-// ============================================================
-// ユーティリティ
-// ============================================================
 function showErr(e) { alert('エラー：' + (e && e.message ? e.message : String(e))); }
 function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function pad(n) { return n < 10 ? '0' + n : String(n); }
-function formatDate(d) {
-  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
-}
+function formatDate(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
 </script>
 </body>
 </html>
