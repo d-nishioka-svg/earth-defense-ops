@@ -5,36 +5,16 @@ function doGet() {
 }
 
 // ============================================================
-// Secret Manager からAPIキーを取得（スクリプトプロパティにフォールバック）
-// ============================================================
-function getGeminiApiKey_() {
-  try {
-    const token = ScriptApp.getOAuthToken();
-    const url = 'https://secretmanager.googleapis.com/v1/projects/raytech-solutions-development/secrets/GEMINI_API_KEY/versions/latest:access';
-    const resp = UrlFetchApp.fetch(url, {
-      headers: { 'Authorization': 'Bearer ' + token },
-      muteHttpExceptions: true
-    });
-    const json = JSON.parse(resp.getContentText());
-    if (json.payload && json.payload.data) {
-      return Utilities.newBlob(Utilities.base64Decode(json.payload.data)).getDataAsString();
-    }
-  } catch(e) {}
-  // Secret Manager が使えない場合はスクリプトプロパティから取得
-  return PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-}
-
-// ============================================================
 // Gemini API ヘルパー
 // ============================================================
 function callGemini_(systemPrompt, userMessage) {
-  const apiKey = getGeminiApiKey_();
+  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey;
 
   const payload = {
     system_instruction: { parts: [{ text: systemPrompt }] },
     contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-    generationConfig: { temperature: 1.0 }
+    generationConfig: { temperature: 1.2 }
   };
 
   const options = {
@@ -83,7 +63,6 @@ function getMissionsSheet_() {
   let sheet = ss.getSheetByName('missions');
   if (!sheet) {
     sheet = ss.insertSheet('missions');
-    // id, goalText, ifThenTrigger, worldStory, createdDate, status, timing, worldSetting, notifyTime
     sheet.appendRow(['id', 'goalText', 'ifThenTrigger', 'worldStory', 'createdDate', 'status', 'timing', 'worldSetting', 'notifyTime']);
     sheet.setFrozenRows(1);
   }
@@ -105,7 +84,6 @@ function today_() {
   return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
-// notifyTime "21:30" → "21時30分になったら"
 function timingFromNotifyTime_(notifyTime) {
   if (!notifyTime) return '';
   const parts = notifyTime.split(':');
@@ -122,13 +100,9 @@ function ensureNotifyTrigger_() {
   for (let i = 0; i < triggers.length; i++) {
     if (triggers[i].getHandlerFunction() === 'checkAndNotify') return;
   }
-  ScriptApp.newTrigger('checkAndNotify')
-    .timeBased()
-    .everyHours(1)
-    .create();
+  ScriptApp.newTrigger('checkAndNotify').timeBased().everyHours(1).create();
 }
 
-// 毎時実行：通知時刻に一致するミッションにメール送信
 function checkAndNotify() {
   const tz = Session.getScriptTimeZone();
   const now = new Date();
@@ -140,7 +114,6 @@ function checkAndNotify() {
   const logsSheet = getDailyLogsSheet_();
   const logsData = logsSheet.getDataRange().getValues();
 
-  // 今日すでにログがあるミッションIDのセット
   const loggedToday = new Set();
   for (let i = 1; i < logsData.length; i++) {
     if (String(logsData[i][2]) === todayStr && logsData[i][5] !== '') {
@@ -162,7 +135,6 @@ function checkAndNotify() {
     const missionId = String(missionsData[i][0]);
     if (loggedToday.has(missionId)) continue;
 
-    // 今日すでに通知済みならスキップ
     const notifyKey = 'notify_' + missionId + '_' + todayStr;
     if (props.getProperty(notifyKey)) continue;
 
@@ -173,66 +145,103 @@ function checkAndNotify() {
       MailApp.sendEmail({
         to: email,
         subject: '🌍 地球防衛OPS ｜ ミッション通知',
-        body: [
-          '大輝へ',
-          '',
-          '時間だ。ミッションを確認しろ。',
-          '',
-          '【ミッション】' + goalText,
-          '【If-Then】' + ifThenTrigger,
-          '',
-          'アプリを開いて今日のキャラクターの指令を受け取れ。',
-          '',
-          '─ 地球防衛オペレーション',
-        ].join('\n'),
+        body: ['大輝へ', '', '時間だ。ミッションを確認しろ。', '',
+          '【ミッション】' + goalText, '【If-Then】' + ifThenTrigger, '',
+          'アプリを開いて今日のキャラクターの指令を受け取れ。', '', '─ 地球防衛オペレーション'].join('\n'),
       });
       props.setProperty(notifyKey, '1');
-    } catch(e) {
-      // メール送信失敗は無視（ログは残らないが処理を止めない）
-    }
+    } catch(e) {}
   }
 }
 
 // ============================================================
-// ミッション作成
+// ミッション生成（保存なし）- step1: ユーザーに3択を提示
 // ============================================================
-function createMission(goalText, notifyTime) {
+function generateMissionOptions(goalText, notifyTime) {
   const timing = timingFromNotifyTime_(notifyTime);
 
-  const systemPrompt = `あなたは並行世界のミッション設計AIです。
-以下のJSON形式のみで応答してください。他の文章は不要です。
+  const systemPrompt = `あなたは並行世界から大輝に通信を送ってきた存在です。
+以下のJSON形式のみで応答してください。他の文章は一切不要です。
 
 {
-  "ifThenTrigger": "If-Thenトリガー（例：「21時になったら（If）、スクワットを20回やる（Then）」）",
-  "worldStory": "なぜこの行動が並行世界を救うのかの説明（2〜3文）",
-  "worldSetting": "並行世界の舞台設定（例：「第七鉱区の鍛冶工房」「銀河系外縁の宇宙ステーション」「地下水路都市の発電所」）"
+  "characterName": "キャラの名前",
+  "characterPersonality": "口調・性格（一文）",
+  "characterIntro": "キャラの自己紹介セリフ（300字程度）",
+  "worldSetting": "並行世界の舞台（例：暗黒銀河の古代図書館）",
+  "missionText": "ミッション説明＋ペナルティ（350字程度）",
+  "ifThenOptions": [
+    {"trigger": "トリガー1", "action": "行動1"},
+    {"trigger": "トリガー2", "action": "行動2"},
+    {"trigger": "トリガー3", "action": "行動3"}
+  ]
 }
 
-worldStoryのルール：
-① 行動（例：スクワット）→その行動が生み出すエネルギー・現象（擬似科学的でOK）→それが並行世界の危機をどう救うか、の流れで書く
-② その世界独自の名称・設定を1つ入れる（「聖なる炉」「量子の重低音」「記憶の結晶」など）
-③ 実在する場所・人・もの・チーム・ブランドを最低1つ入れること（例：エベレスト、スタバ、バルセロナ、NASA、阪神タイガース、富士山など世界中のなんでもOK）。知っているものが出ると臨場感が生まれる
-④ 平易な言葉で。抽象的なSF語禁止
-⑤ 全体で2〜3文`;
+━━ キャラ生成ルール ━━
+・既存のSFテンプレート（ロボット・宇宙人・AI・魔法使い）は絶対禁止
+・全く異なる2つの概念をサイバー/ファンタジー要素で掛け合わせた、その場で新たに完全自動生成したキャラにすること
+ 例：「暗黒銀河の読書カマキリ」「並行世界βのサイバーお遍路さん」「量子世界のハードコア盆栽職人」「地下帝国の酔っ払い数学者」「亜空間の元プロ雀士ロボネコ」
+・characterIntroでは：①職業 ②現在の状況 ③なぜ大輝に通信してきたか、をキャラ全開の口調で語らせる
+・口調・語尾は最初から最後まで完全に崩さないこと（例：だにゃ語尾なら全てだにゃで終わる）
+
+━━ If-Thenトリガーのルール（最重要） ━━
+・「大輝が1日に必ず行う無意識な生活行動」を引き金にすること
+・以下のレベルの具体性が必要：
+  ✓「夜、スマホを充電器に挿した瞬間に」
+  ✓「お風呂が沸いたアラームが鳴ったら」
+  ✓「朝、コーヒーをマグカップに注ぎ終えたら」
+  ✓「YouTubeを開いて最初の広告が流れ始めたら」
+  ✓「トイレに座って落ち着いたら」
+  ✗「毎日やる」「時間を決めて」→ NG（抽象的すぎる）
+・3つは朝・夜・お風呂などバラバラのシーンから選ぶ
+・actionには具体的な量を入れる（○回/○分/○ページ）
+
+━━ missionTextのルール ━━
+【前半：行動した場合（200字）】
+ その行動（例：スクワット）が生み出すエネルギー・現象が、このキャラの並行世界でどう機能するかを、壮大かつバカバカしいほど大真面目に説明する
+ 世界中の実在する場所・もの・チーム・ブランド（エベレスト、NASA、スタバ、阪神タイガース、任天堂など何でもOK）を最低1つ入れること
+
+【後半：サボった場合のペナルティ（150字）】
+ このキャラの世界に何が起きるかをリアルに描写し「俺がやらないと世界が終わる」という変な使命感（損失回避バイアス）を強力に植え付けること`;
 
   const userMsg = '継続したいこと：' + goalText + (timing ? '\nタイミング：' + timing : '');
   const result = callGemini_(systemPrompt, userMsg);
-  const data = parseJson_(result);
+  return parseJson_(result);
+}
+
+// ============================================================
+// ミッション保存 - step2: ユーザーが選んだプランを確定保存
+// ============================================================
+function saveMission(goalText, notifyTime, selectedIndex, generatedData) {
+  const timing = timingFromNotifyTime_(notifyTime);
+  const option = generatedData.ifThenOptions[selectedIndex];
+  const ifThenTrigger = option.trigger + ' → ' + option.action;
 
   const sheet = getMissionsSheet_();
   const id = Utilities.getUuid();
   const now = today_();
-  sheet.appendRow([id, goalText, data.ifThenTrigger, data.worldStory, now, 'active', timing, data.worldSetting || '', notifyTime || '']);
+  sheet.appendRow([
+    id, goalText, ifThenTrigger, generatedData.missionText,
+    now, 'active', timing, generatedData.worldSetting || '', notifyTime || ''
+  ]);
   cacheRemove_('missions');
+
+  // 今日のログとして初回キャラを保存（当日はそのままこのキャラが表示される）
+  const logsSheet = getDailyLogsSheet_();
+  const logId = Utilities.getUuid();
+  logsSheet.appendRow([
+    logId, id, now,
+    generatedData.characterName, generatedData.characterPersonality,
+    '', generatedData.characterIntro
+  ]);
 
   if (notifyTime) {
     try { ensureNotifyTrigger_(); } catch(e) {}
   }
 
   return {
-    id: id, goalText: goalText, ifThenTrigger: data.ifThenTrigger,
-    worldStory: data.worldStory, createdDate: now, status: 'active',
-    timing: timing, worldSetting: data.worldSetting || '', notifyTime: notifyTime || ''
+    id: id, goalText: goalText, ifThenTrigger: ifThenTrigger,
+    worldStory: generatedData.missionText, createdDate: now, status: 'active',
+    timing: timing, worldSetting: generatedData.worldSetting || '', notifyTime: notifyTime || ''
   };
 }
 
@@ -274,12 +283,12 @@ function getTodayMission(missionId) {
 
   for (let i = 1; i < logsData.length; i++) {
     if (String(logsData[i][1]) === String(missionId) && String(logsData[i][2]) === todayStr) {
-      const result = {
+      const entry = {
         logId: logsData[i][0], characterName: logsData[i][3],
         characterPersonality: logsData[i][4], result: logsData[i][5], responseText: logsData[i][6]
       };
-      cachePut_(cacheKey, result);
-      return result;
+      cachePut_(cacheKey, entry);
+      return entry;
     }
   }
 
@@ -305,26 +314,25 @@ function getTodayMission(missionId) {
 以下のJSON形式のみで応答してください。
 
 {
-  "characterName": "キャラの名前（例：「第七鉱区の鍛冶頭ガルドン」「銀河DJニャンコ」「砂漠の交易商マリア」）",
-  "characterPersonality": "性格・口調（一文。例：「荒っぽい職人言葉」「だにゃ語尾の元気系」「冷静だが内心あせっている」）",
+  "characterName": "キャラ名",
+  "characterPersonality": "口調・性格（一文）",
   "greeting": "大輝への指令セリフ（200字程度）"
 }
 
 greetingのルール：
 ① キャラが自分の世界から直接話しかけている体で書く（口調・語尾を最初から最後まで崩さない）
-② 自分の世界で今何が起きているか（危機の状況）を1文で説明する
-③ なぜ大輝の「${mission.goalText}」がその危機を救えるのか、世界観に沿ったメカニズムを1文で説明する
-④ 実在する場所・もの・チーム・ブランドを最低1つ使うこと（エベレスト、NASA、スタバ、阪神タイガース、富士山など世界中なんでもOK）。知っているものが出ると面白い
-⑤ ミッション（${mission.timing ? mission.timing + '、' : ''}${mission.goalText}）を伝えて、最後にキャラらしい一言で締める
-⑥ 全部キャラのセリフ。説明文NG` + (isSpecial ? '\n\n【今日は特別通信】キャラ名に称号か肩書きをつけて特別感を出す。' : '');
+② 既存のSFテンプレート禁止。2つの異なる概念を掛け合わせた新キャラ
+③ 自分の世界で今何が起きているか（危機の状況）を1文で説明する
+④ なぜ大輝の「${mission.goalText}」がその危機を救えるのかを1文で説明する
+⑤ 世界中の実在する場所・もの（エベレスト、NASA、スタバ、阪神タイガースなど）を最低1つ使う
+⑥ ミッション（${mission.timing ? mission.timing + '、' : ''}${mission.goalText}）を伝えて、キャラらしい一言で締める
+⑦ 全部キャラのセリフ。説明文NG` + (isSpecial ? '\n\n【今日は特別通信】キャラ名に称号か肩書きをつけて特別感を出す。' : '');
 
   const userMsg = `ミッション：${mission.goalText}
 If-Thenトリガー：${mission.ifThenTrigger}
 並行世界の危機・設定：${mission.worldStory}
 舞台設定：${mission.worldSetting || '並行世界'}
-タイミング：${mission.timing || 'なし'}
-
-この世界観に合ったキャラクターを作り、指令を届けてください。`;
+タイミング：${mission.timing || 'なし'}`;
 
   const result = callGemini_(systemPrompt, userMsg);
   const charData = parseJson_(result);
@@ -368,7 +376,7 @@ function report_(missionId, type) {
     }
   }
 
-  const systemPrompt = `あなたは並行世界から通信してきた「${charName}」というキャラクターです。
+  const systemPrompt = `あなたは並行世界から通信してきた「${charName}」です。
 口調・性格：${charPersonality}
 そのキャラを最初から最後まで崩さず、自分の世界の出来事として話してください。`;
 
@@ -376,16 +384,16 @@ function report_(missionId, type) {
   if (type === 'done') {
     userMsg = `大輝が今日「${mission.goalText}」を完了した！
 並行世界の設定：${mission.worldStory}
-150字以内でリアクションすること：
-・自分の世界で何が救われたか、実在する場所・もの（エベレスト、スタバ、阪神タイガース、富士山など世界中なんでもOK）を1つ使って具体的に伝える
+150字以内でリアクション：
+・自分の世界で何が救われたか、実在する場所・もの（エベレスト、スタバ、阪神タイガース等、世界中なんでもOK）を1つ使って具体的に伝える
 ・大輝を称える（キャラの言い方で）
 ・キャラらしい締めの一言`;
   } else {
     userMsg = `大輝が「今日は無理」と言っている。ミッション：「${mission.goalText}」
 並行世界の設定：${mission.worldStory}
-200字以内で応答すること：
-・今自分の世界で何がやばいか、実在する場所・もの（エベレスト、スタバ、阪神タイガース、富士山など世界中なんでもOK）を1つ使って具体的に伝える
-・「1回だけやってくれたら持ちこたえられる」という最小のお願いを伝える
+200字以内で応答：
+・今自分の世界で何がやばいか、実在する場所・もの（エベレスト、スタバ等）を1つ使って具体的に伝える
+・「1回だけやってくれたら持ちこたえられる」という最小のお願い
 ・キャラらしい必死さで締める`;
   }
 
@@ -405,7 +413,7 @@ function report_(missionId, type) {
 }
 
 // ============================================================
-// 統計・ストリーク・カレンダーデータ取得
+// 統計・ストリーク・カレンダーデータ
 // ============================================================
 function getStats(missionId) {
   const statsCacheKey = 'stats_' + missionId;
@@ -419,16 +427,12 @@ function getStats(missionId) {
 
   let createdDate = '';
   for (let i = 1; i < missionsData.length; i++) {
-    if (String(missionsData[i][0]) === String(missionId)) {
-      createdDate = missionsData[i][4]; break;
-    }
+    if (String(missionsData[i][0]) === String(missionId)) { createdDate = missionsData[i][4]; break; }
   }
 
   const logMap = {};
   for (let i = 1; i < logsData.length; i++) {
-    if (String(logsData[i][1]) === String(missionId)) {
-      logMap[logsData[i][2]] = logsData[i][5];
-    }
+    if (String(logsData[i][1]) === String(missionId)) logMap[logsData[i][2]] = logsData[i][5];
   }
 
   const calendarData = {};
@@ -440,8 +444,7 @@ function getStats(missionId) {
     calendarData[key] = logMap[key] || '';
   }
 
-  let currentStreak = 0;
-  let checking = true;
+  let currentStreak = 0, checking = true;
   for (let d = 0; d < 365; d++) {
     const dt = new Date();
     dt.setDate(dt.getDate() - d);
@@ -456,24 +459,16 @@ function getStats(missionId) {
   let bestStreak = 0, tempStreak = 0, prevDate = null;
   sortedDates.forEach(function(d) {
     if (prevDate) {
-      const diff = (new Date(d) - new Date(prevDate)) / 86400000;
-      tempStreak = (diff === 1) ? tempStreak + 1 : 1;
+      tempStreak = (new Date(d) - new Date(prevDate)) / 86400000 === 1 ? tempStreak + 1 : 1;
     } else { tempStreak = 1; }
     if (tempStreak > bestStreak) bestStreak = tempStreak;
     prevDate = d;
   });
 
   const totalDone = Object.values(logMap).filter(function(v){ return v === 'done'; }).length;
-  let totalDays = 0;
-  if (createdDate) {
-    totalDays = Math.floor((new Date() - new Date(createdDate)) / 86400000) + 1;
-  }
+  let totalDays = createdDate ? Math.floor((new Date() - new Date(createdDate)) / 86400000) + 1 : 0;
 
-  const stats = {
-    currentStreak: currentStreak, bestStreak: bestStreak,
-    totalDone: totalDone, totalDays: totalDays,
-    calendarData: calendarData, createdDate: String(createdDate)
-  };
+  const stats = { currentStreak: currentStreak, bestStreak: bestStreak, totalDone: totalDone, totalDays: totalDays, calendarData: calendarData, createdDate: String(createdDate) };
   cachePut_(statsCacheKey, stats);
   return stats;
 }
