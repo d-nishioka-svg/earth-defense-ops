@@ -78,45 +78,6 @@
     .add-form.open { display: block; }
     .field-label { font-size: 12px; font-weight: 600; color: var(--dim); margin-bottom: 6px; }
 
-    /* ======= ミッション生成プレビュー（step2）======= */
-    .mission-preview { display: none; margin-bottom: 14px; }
-    .mission-preview.active { display: block; }
-
-    .char-preview-card {
-      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
-      border-radius: 16px; padding: 20px; margin-bottom: 14px; color: #fff;
-      box-shadow: 0 4px 20px rgba(26,92,204,0.25);
-    }
-    .char-preview-name { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
-    .char-preview-personality { font-size: 12px; opacity: .75; margin-bottom: 14px; }
-    .char-preview-intro { font-size: 15px; line-height: 2; white-space: pre-wrap; }
-
-    .mission-desc-card {
-      background: var(--bg2); border: 1.5px solid var(--border);
-      border-radius: 14px; padding: 16px; margin-bottom: 14px;
-      font-size: 14px; line-height: 1.9; color: var(--text); box-shadow: var(--shadow);
-    }
-    .mission-desc-label { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: 1px; margin-bottom: 8px; }
-    .penalty-label { font-size: 11px; font-weight: 700; color: var(--skip); letter-spacing: 1px; margin: 12px 0 6px; }
-
-    .options-label { font-size: 11px; font-weight: 700; color: var(--dim); letter-spacing: 2px; margin-bottom: 10px; }
-    .option-card {
-      background: var(--bg2); border: 2px solid var(--border);
-      border-radius: 14px; padding: 16px; margin-bottom: 10px;
-      cursor: pointer; transition: border-color .15s, background .15s;
-      box-shadow: var(--shadow);
-    }
-    .option-card:active { transform: scale(.98); }
-    .option-card.selected { border-color: var(--accent); background: #EDF4FF; }
-    .option-num { font-size: 11px; font-weight: 700; color: var(--dim); margin-bottom: 5px; }
-    .option-trigger { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-    .option-arrow { font-size: 12px; color: var(--dim); margin-bottom: 2px; }
-    .option-action { font-size: 14px; font-weight: 600; color: var(--accent); }
-    .option-card.selected .option-num { color: var(--accent); }
-
-    .preview-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
-    .validation-msg { font-size: 13px; color: var(--skip); text-align: center; padding: 6px 0; display: none; }
-
     /* ======= ミッションカード ======= */
     .mission-card { background: var(--bg2); border: 1.5px solid var(--border); border-radius: 14px; padding: 14px 12px 14px 16px; cursor: pointer; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; box-shadow: var(--shadow); transition: border-color .2s; }
     .mission-card:active { background: var(--bg3); }
@@ -214,43 +175,14 @@
     <!-- ===== 作戦本部 ===== -->
     <div id="tab-base" class="tab active pad">
 
-      <!-- Step1: 入力フォーム -->
+      <!-- ミッション追加フォーム（1ステップ） -->
       <button class="add-toggle" id="addToggle" onclick="toggleAddForm()">＋ 新規ミッション登録</button>
       <div class="add-form" id="addForm">
         <div class="field-label">▶ 継続したいこと</div>
         <input type="text" id="goalInput" placeholder="例：毎日スクワット20回" />
         <div class="field-label">▶ 通知・実行時刻（毎日この時間にメール通知）</div>
         <input type="time" id="notifyTime" value="21:00" />
-        <button class="btn btn-primary" id="generateBtn" onclick="generateOptions()">ミッションを生成する</button>
-      </div>
-
-      <!-- Step2: 生成結果プレビュー -->
-      <div class="mission-preview" id="missionPreview">
-
-        <!-- キャラ自己紹介 -->
-        <div class="char-preview-card">
-          <div class="char-preview-name" id="previewCharName"></div>
-          <div class="char-preview-personality" id="previewCharPersonality"></div>
-          <div class="char-preview-intro" id="previewCharIntro"></div>
-        </div>
-
-        <!-- ミッション説明 -->
-        <div class="mission-desc-card">
-          <div class="mission-desc-label">◈ 行動した場合</div>
-          <div id="previewMissionEffect"></div>
-          <div class="penalty-label">⚠ サボった場合のペナルティ</div>
-          <div id="previewMissionPenalty"></div>
-        </div>
-
-        <!-- If-Then 3択 -->
-        <div class="options-label">IF-THEN プランを選択</div>
-        <div id="previewOptions"></div>
-        <div class="validation-msg" id="validationMsg">プランを1つ選んでください</div>
-
-        <div class="preview-actions">
-          <button class="btn btn-primary" id="confirmBtn" onclick="confirmMission()">このプランで開始する</button>
-          <button class="btn btn-secondary" onclick="cancelPreview()">やり直す</button>
-        </div>
+        <button class="btn btn-primary" id="createBtn" onclick="doCreateMission()">ミッションを開始する</button>
       </div>
 
       <div class="section-label">アクティブミッション</div>
@@ -286,10 +218,6 @@
 <script>
 var missions = [];
 var selectedId = localStorage.getItem('selectedMissionId') || null;
-var pendingGoal = '';
-var pendingNotifyTime = '';
-var pendingGeneratedData = null;
-var selectedOptionIndex = -1;
 
 // ============================================================
 // タブ切り替え
@@ -348,137 +276,40 @@ function selectMission(id) {
 }
 
 // ============================================================
-// Step1: フォームトグル
+// フォームトグル
 // ============================================================
 function toggleAddForm() {
   var f = document.getElementById('addForm');
-  var preview = document.getElementById('missionPreview');
-  if (preview.classList.contains('active')) {
-    cancelPreview();
-    return;
-  }
   f.classList.toggle('open');
   if (f.classList.contains('open')) document.getElementById('goalInput').focus();
 }
 
 // ============================================================
-// Step1→Step2: ミッション生成（AIに投げる）
+// ミッション作成（1ステップ）
 // ============================================================
-function generateOptions() {
+function doCreateMission() {
   var goal = document.getElementById('goalInput').value.trim();
   var notifyTime = document.getElementById('notifyTime').value;
   if (!goal) { alert('継続したいことを入力してください'); return; }
 
-  pendingGoal = goal;
-  pendingNotifyTime = notifyTime;
-  pendingGeneratedData = null;
-  selectedOptionIndex = -1;
-
-  var btn = document.getElementById('generateBtn');
-  btn.disabled = true; btn.textContent = 'キャラと作戦を生成中…';
-
-  google.script.run
-    .withSuccessHandler(function(data) {
-      btn.disabled = false; btn.textContent = 'ミッションを生成する';
-      showMissionPreview(data);
-    })
-    .withFailureHandler(function(e) {
-      btn.disabled = false; btn.textContent = 'ミッションを生成する';
-      showErr(e);
-    })
-    .generateMissionOptions(goal, notifyTime);
-}
-
-// ============================================================
-// Step2: 生成結果を表示
-// ============================================================
-function showMissionPreview(data) {
-  pendingGeneratedData = data;
-
-  // キャラ情報
-  document.getElementById('previewCharName').textContent = data.characterName || '';
-  document.getElementById('previewCharPersonality').textContent = data.characterPersonality || '';
-  document.getElementById('previewCharIntro').textContent = data.characterIntro || '';
-
-  // ミッション説明を前半/後半に分割（改行で分ける）
-  var missionText = data.missionText || '';
-  var lines = missionText.split('\n');
-  var half = Math.ceil(lines.length / 2);
-  document.getElementById('previewMissionEffect').textContent = lines.slice(0, half).join('\n');
-  document.getElementById('previewMissionPenalty').textContent = lines.slice(half).join('\n') || missionText;
-
-  // If-Then 3択
-  var optionsEl = document.getElementById('previewOptions');
-  optionsEl.innerHTML = (data.ifThenOptions || []).map(function(opt, i) {
-    return '<div class="option-card" id="opt-' + i + '" onclick="selectOption(' + i + ')">'
-      + '<div class="option-num">PLAN ' + (i + 1) + '</div>'
-      + '<div class="option-trigger">🎯 ' + esc(opt.trigger || '') + '</div>'
-      + '<div class="option-arrow">↓</div>'
-      + '<div class="option-action">' + esc(opt.action || '') + '</div>'
-      + '</div>';
-  }).join('');
-
-  document.getElementById('validationMsg').style.display = 'none';
-
-  // フォームを隠してプレビューを表示
-  document.getElementById('addForm').classList.remove('open');
-  document.getElementById('addToggle').style.display = 'none';
-  document.getElementById('missionPreview').classList.add('active');
-
-  // プレビューまでスクロール
-  setTimeout(function() {
-    document.getElementById('missionPreview').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 100);
-}
-
-// ============================================================
-// Step2: オプション選択
-// ============================================================
-function selectOption(index) {
-  selectedOptionIndex = index;
-  var options = document.querySelectorAll('.option-card');
-  options.forEach(function(el, i) {
-    el.classList.toggle('selected', i === index);
-  });
-  document.getElementById('validationMsg').style.display = 'none';
-}
-
-// ============================================================
-// Step2: 確定保存
-// ============================================================
-function confirmMission() {
-  if (selectedOptionIndex < 0) {
-    document.getElementById('validationMsg').style.display = 'block';
-    return;
-  }
-  var btn = document.getElementById('confirmBtn');
-  btn.disabled = true; btn.textContent = '保存中…';
+  var btn = document.getElementById('createBtn');
+  btn.disabled = true; btn.textContent = 'キャラとミッションを生成中…';
 
   google.script.run
     .withSuccessHandler(function(mission) {
-      btn.disabled = false; btn.textContent = 'このプランで開始する';
+      btn.disabled = false; btn.textContent = 'ミッションを開始する';
       missions.push(mission);
       renderMissions();
       syncArchiveSelect();
       document.getElementById('goalInput').value = '';
-      cancelPreview();
+      document.getElementById('addForm').classList.remove('open');
       selectMission(mission.id);
     })
     .withFailureHandler(function(e) {
-      btn.disabled = false; btn.textContent = 'このプランで開始する';
+      btn.disabled = false; btn.textContent = 'ミッションを開始する';
       showErr(e);
     })
-    .saveMission(pendingGoal, pendingNotifyTime, selectedOptionIndex, pendingGeneratedData);
-}
-
-// ============================================================
-// Step2: キャンセル・やり直し
-// ============================================================
-function cancelPreview() {
-  document.getElementById('missionPreview').classList.remove('active');
-  document.getElementById('addToggle').style.display = '';
-  pendingGeneratedData = null;
-  selectedOptionIndex = -1;
+    .createMission(goal, notifyTime);
 }
 
 // ============================================================

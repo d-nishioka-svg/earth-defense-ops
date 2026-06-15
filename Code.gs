@@ -179,6 +179,14 @@ function generateMissionOptions(goalText, notifyTime) {
 }
 
 // ============================================================
+// ミッション作成（1ステップ：生成 + 保存）
+// ============================================================
+function createMission(goalText, notifyTime) {
+  var data = generateMissionOptions(goalText, notifyTime);
+  return saveMission(goalText, notifyTime, 0, data);
+}
+
+// ============================================================
 // ミッション保存（選択確定）
 // ============================================================
 function saveMission(goalText, notifyTime, selectedIndex, generatedData) {
