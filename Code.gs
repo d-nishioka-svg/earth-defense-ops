@@ -5,10 +5,30 @@ function doGet() {
 }
 
 // ============================================================
+// Secret Manager からAPIキーを取得（スクリプトプロパティにフォールバック）
+// ============================================================
+function getGeminiApiKey_() {
+  try {
+    const token = ScriptApp.getOAuthToken();
+    const url = 'https://secretmanager.googleapis.com/v1/projects/raytech-solutions-development/secrets/GEMINI_API_KEY/versions/latest:access';
+    const resp = UrlFetchApp.fetch(url, {
+      headers: { 'Authorization': 'Bearer ' + token },
+      muteHttpExceptions: true
+    });
+    const json = JSON.parse(resp.getContentText());
+    if (json.payload && json.payload.data) {
+      return Utilities.newBlob(Utilities.base64Decode(json.payload.data)).getDataAsString();
+    }
+  } catch(e) {}
+  // Secret Manager が使えない場合はスクリプトプロパティから取得
+  return PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+}
+
+// ============================================================
 // Gemini API ヘルパー
 // ============================================================
 function callGemini_(systemPrompt, userMessage) {
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  const apiKey = getGeminiApiKey_();
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey;
 
   const payload = {
