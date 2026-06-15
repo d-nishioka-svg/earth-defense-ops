@@ -29,6 +29,20 @@ function parseJson_(text) {
 }
 
 // ============================================================
+// キャラ生成の共通ルール（generateMissionOptions・getTodayMission 共通）
+// ============================================================
+const CHAR_RULES_ = `━━ キャラ生成ルール ━━
+・既存のSFテンプレート（ロボット・宇宙人・AI・魔法使い）は絶対禁止
+・全く異なる2つの概念をサイバー/ファンタジー要素で掛け合わせた新キャラ
+ 例：「暗黒銀河の読書カマキリ」「並行世界βのサイバーお遍路さん」「量子世界のハードコア盆栽職人」
+・口調・語尾は最初から最後まで完全に崩さないこと（全フィールド共通）
+
+━━ doneResponse / skipResponseルール ━━
+・キャラの口調を最初から最後まで崩さない
+・doneResponse：世界で何が救われたかを実在する場所・ものを使って1文 + 大輝を称える + キャラらしい締め（120字以内）
+・skipResponse：今何がやばいかを1文 + 「1回だけでいい」という必死な懇願 + キャラらしい締め（180字以内）`;
+
+// ============================================================
 // キャッシュヘルパー
 // ============================================================
 function cacheGet_(key) {
@@ -124,7 +138,7 @@ function checkAndNotify() {
 }
 
 // ============================================================
-// ミッション生成（保存なし）
+// ミッション生成（ミッション作成時・初日キャラ込み）
 // ============================================================
 function generateMissionOptions(goalText, notifyTime) {
   const timing = timingFromNotifyTime_(notifyTime);
@@ -140,19 +154,13 @@ function generateMissionOptions(goalText, notifyTime) {
   "missionText": "ミッション説明＋ペナルティ（350字程度）",
   "doneResponse": "大輝が任務完了した場合のキャラのリアクション（120字以内）",
   "skipResponse": "大輝がサボった場合のキャラのリアクション（「1回だけでいい」という懇願を含め180字以内）",
-  "ifThenOptions": [
-    {"trigger": "トリガー1", "action": "行動1"},
-    {"trigger": "トリガー2", "action": "行動2"},
-    {"trigger": "トリガー3", "action": "行動3"}
-  ]
+  "ifThen": {"trigger": "トリガー", "action": "行動"}
 }
 
-━━ キャラ生成ルール ━━
-・既存のSFテンプレート（ロボット・宇宙人・AI・魔法使い）は絶対禁止
-・全く異なる2つの概念をサイバー/ファンタジー要素で掛け合わせた新キャラ
- 例：「暗黒銀河の読書カマキリ」「並行世界βのサイバーお遍路さん」「量子世界のハードコア盆栽職人」
-・characterIntroで職業・現在の状況・なぜ大輝に通信したかをキャラ全開の口調で語らせる
-・口調・語尾は最初から最後まで完全に崩さないこと
+${CHAR_RULES_}
+
+━━ characterIntroルール ━━
+・職業・現在の状況・なぜ大輝に通信したかをキャラ全開の口調で語らせる
 
 ━━ If-Thenトリガールール ━━
 ・「大輝が1日に必ず行う無意識な生活行動」を引き金にする
@@ -161,38 +169,31 @@ function generateMissionOptions(goalText, notifyTime) {
   ✓「お風呂が沸いたアラームが鳴ったら」
   ✓「朝、コーヒーをマグカップに注ぎ終えたら」
   ✗「毎日やる」「時間を決めて」→ NG
-・3つは朝・夜・お風呂などバラバラのシーン
 ・actionに具体的な量（○回/○分）を入れる
 
 ━━ missionTextルール ━━
 ・前半：行動が並行世界を救う仕組みを壮大かつ大真面目に（200字）
 ・後半：サボった場合の損失を具体的に描写（150字）
-・実在する場所・もの（エベレスト、NASAなど世界中なんでもOK）を最低1つ入れる
-
-━━ doneResponse / skipResponseルール ━━
-・キャラの口調を最初から最後まで崩さない
-・doneResponse：世界で何が救われたかを1文 + 大輝を称える + キャラらしい締め
-・skipResponse：今何がやばいかを1文 + 「1回だけでいい」という懇願 + キャラらしい必死さ`;
+・実在する場所・もの（エベレスト、NASAなど世界中なんでもOK）を最低1つ入れる`;
 
   const userMsg = '継続したいこと：' + goalText + (timing ? '\nタイミング：' + timing : '');
   return parseJson_(callGemini_(systemPrompt, userMsg));
 }
 
 // ============================================================
-// ミッション作成（1ステップ：生成 + 保存）
+// ミッション作成（生成 → 保存 の1ステップ）
 // ============================================================
 function createMission(goalText, notifyTime) {
-  var data = generateMissionOptions(goalText, notifyTime);
-  return saveMission(goalText, notifyTime, 0, data);
+  const data = generateMissionOptions(goalText, notifyTime);
+  return saveMission(goalText, notifyTime, data);
 }
 
 // ============================================================
-// ミッション保存（選択確定）
+// ミッション保存
 // ============================================================
-function saveMission(goalText, notifyTime, selectedIndex, generatedData) {
+function saveMission(goalText, notifyTime, generatedData) {
   const timing = timingFromNotifyTime_(notifyTime);
-  const opt = generatedData.ifThenOptions[selectedIndex];
-  const ifThenTrigger = opt.trigger + ' → ' + opt.action;
+  const ifThenTrigger = generatedData.ifThen.trigger + ' → ' + generatedData.ifThen.action;
 
   const msSheet = getMissionsSheet_();
   const id = Utilities.getUuid();
@@ -201,10 +202,9 @@ function saveMission(goalText, notifyTime, selectedIndex, generatedData) {
     timing, generatedData.worldSetting || '', notifyTime || '']);
   cacheRemove_('missions');
 
-  // 初回（今日）のログ：キャラ自己紹介 + 事前生成済みのdone/skipレスポンスを保存
+  // 初日ログ：キャラ自己紹介 + 事前生成済みのdone/skipレスポンスを保存
   const lgSheet = getDailyLogsSheet_();
-  const logId = Utilities.getUuid();
-  lgSheet.appendRow([logId, id, now,
+  lgSheet.appendRow([Utilities.getUuid(), id, now,
     generatedData.characterName, generatedData.characterPersonality,
     '', generatedData.characterIntro,
     generatedData.doneResponse || '', generatedData.skipResponse || '']);
@@ -280,7 +280,7 @@ function getTodayMission(missionId) {
   const isSpecial = (totalLogs > 0 && totalLogs % 10 === 0);
 
   const systemPrompt = `あなたは毎日違うキャラクターで大輝に並行世界の指令を届けるAIです。
-以下のJSON形式のみで応答してください。
+以下のJSON形式のみで応答してください。他の文章は一切不要です。
 
 {
   "characterName": "キャラ名（今日の新キャラ）",
@@ -290,12 +290,10 @@ function getTodayMission(missionId) {
   "skipResponse": "大輝がサボった場合のリアクション（「1回だけでいい」という懇願を含め180字以内）"
 }
 
-キャラ生成ルール：
-・既存のSFテンプレート禁止。2つの異なる概念を掛け合わせた新キャラ（毎日違う！）
-・口調・語尾を最初から最後まで崩さない（全フィールド共通）
-・greeting：自分の世界の危機状況 + なぜ大輝の行動が必要か + 実在する場所・もの（世界中なんでもOK）を1つ + ミッション（${mission.timing ? mission.timing + '、' : ''}${mission.goalText}）を伝える
-・doneResponse：世界で何が救われたかを実在する場所・ものを使って + 大輝を称える + キャラらしい締め
-・skipResponse：今何がやばいかを + 「1回だけでいい」という必死な懇願 + キャラらしい締め` + (isSpecial ? '\n・【特別通信】キャラ名に称号をつける。' : '');
+${CHAR_RULES_}
+
+━━ greetingルール ━━
+・自分の世界の危機状況 + なぜ大輝の行動が必要か + 実在する場所・もの（世界中なんでもOK）を1つ + ミッション（${mission.timing ? mission.timing + '、' : ''}${mission.goalText}）を伝える` + (isSpecial ? '\n・【特別通信】キャラ名に称号をつける。' : '');
 
   const userMsg = `ミッション：${mission.goalText}
 If-Then：${mission.ifThenTrigger}
@@ -304,15 +302,13 @@ If-Then：${mission.ifThenTrigger}
 
   const charData = parseJson_(callGemini_(systemPrompt, userMsg));
 
-  const logId = Utilities.getUuid();
-  // doneResponse(col8) と skipResponse(col9) を事前保存
-  lgSheet.appendRow([logId, missionId, todayStr,
+  lgSheet.appendRow([Utilities.getUuid(), missionId, todayStr,
     charData.characterName, charData.characterPersonality,
     '', charData.greeting,
     charData.doneResponse || '', charData.skipResponse || '']);
 
   const entry = {
-    logId: logId, characterName: charData.characterName,
+    logId: Utilities.getUuid(), characterName: charData.characterName,
     characterPersonality: charData.characterPersonality,
     result: '', responseText: charData.greeting, isSpecial: isSpecial
   };
@@ -332,10 +328,12 @@ function report_(missionId, type) {
   const lgSheet = getDailyLogsSheet_();
   const lgData = lgSheet.getDataRange().getValues();
 
-  let rowIndex = -1, preResponse = '';
+  let rowIndex = -1, preResponse = '', charName = '', charPersonality = '';
   for (let i = 1; i < lgData.length; i++) {
     if (String(lgData[i][1]) === String(missionId) && String(lgData[i][2]) === todayStr) {
       rowIndex = i + 1;
+      charName = lgData[i][3];
+      charPersonality = lgData[i][4];
       // col8=doneResponse(index7), col9=skipResponse(index8)
       preResponse = String(type === 'done' ? (lgData[i][7] || '') : (lgData[i][8] || ''));
       break;
@@ -345,8 +343,8 @@ function report_(missionId, type) {
   // 事前保存済みレスポンスがある → APIを呼ばない
   if (preResponse) {
     if (rowIndex > 0) {
-      lgSheet.getRange(rowIndex, 6).setValue(type);       // result列
-      lgSheet.getRange(rowIndex, 7).setValue(preResponse); // responseText列を上書き
+      lgSheet.getRange(rowIndex, 6).setValue(type);
+      lgSheet.getRange(rowIndex, 7).setValue(preResponse);
     }
     const cacheKey = 'today_' + missionId + '_' + todayStr;
     const cached = cacheGet_(cacheKey);
@@ -356,13 +354,6 @@ function report_(missionId, type) {
   }
 
   // フォールバック：旧データや初回保存なし → Geminiを呼ぶ
-  let charName = '', charPersonality = '';
-  if (rowIndex > 0) { charName = lgData[rowIndex - 2 + 1][3]; charPersonality = lgData[rowIndex - 2 + 1][4]; }
-  for (let i = 1; i < lgData.length; i++) {
-    if (String(lgData[i][1]) === String(missionId) && String(lgData[i][2]) === todayStr) {
-      charName = lgData[i][3]; charPersonality = lgData[i][4]; break;
-    }
-  }
   const msData = getMissionsSheet_().getDataRange().getValues();
   let worldStory = '', goalText = '';
   for (let i = 1; i < msData.length; i++) {
