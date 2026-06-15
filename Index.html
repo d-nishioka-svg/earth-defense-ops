@@ -331,8 +331,7 @@ function buildIfThenBox(mission) {
   if (!mission) return '';
   return '<div class="if-then-box">'
     + (mission.timing ? '<b>タイミング：</b>' + esc(mission.timing) + '<br>' : '')
-    + '<b>If-Then：</b>' + esc(mission.ifThenTrigger) + '<br>'
-    + '<b>使命：</b>' + esc(mission.worldStory) + '</div>';
+    + '<b>If-Then：</b>' + esc(mission.ifThenTrigger) + '</div>';
 }
 
 // ============================================================
