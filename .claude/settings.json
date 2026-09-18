@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/postcompact-save.sh\"",
+            "timeout": 30,
+            "statusMessage": "CLAUDE.mdに要約を保存中..."
+          }
+        ]
+      }
+    ]
+  }
+}
